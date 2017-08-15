@@ -1,0 +1,19 @@
+3D Items - Shield Pack
+
+
+To make use of the items pivot points look to the right of the four main control buttons (pan, move, rotate, scale), and you'll see two other buttons.
+
+The first toggles between "Center" or "Pivot", and the second toggles between "Local" or "Global".
+
+Use "Pivot" for the first one and "Local" for the second one.
+
+
+
+Cartoon Asset Pack with Shields.
+125 Shields.
+1 Texture 256x256 (same ones as the rest of the packs in this style)
+Includes example scene with all the items.
+
+
+Support Mail
+FrostForgedAssets@gmail.com
