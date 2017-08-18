@@ -8,10 +8,16 @@ public class ToonWater : MonoBehaviour
     public LayerMask reflectLayers = -1;
     public int textureSize = 256;
     public float clipPlaneOffset = 0.07f;
+    public Texture2D m_NoiseTexture;
 
     private Dictionary<Camera, Camera> m_ReflectionCameras = new Dictionary<Camera, Camera>(); // Camera -> Camera table
     private RenderTexture m_ReflectionTexture;
     private int m_OldReflectionTextureSize;
+
+    void Update()
+    {
+        GetComponent<Renderer>().sharedMaterial.SetTexture("_NoiseTex", m_NoiseTexture);
+    }
 
     // Cleanup all the objects we possibly have created
     void OnDisable()
