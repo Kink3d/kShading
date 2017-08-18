@@ -14,9 +14,21 @@ public class ToonWater : MonoBehaviour
     private RenderTexture m_ReflectionTexture;
     private int m_OldReflectionTextureSize;
 
+    Matrix4x4 m_Matrix;
+
+    public Camera cam;
+
     void Update()
     {
         GetComponent<Renderer>().sharedMaterial.SetTexture("_NoiseTex", m_NoiseTexture);
+        if(m_Matrix != null)
+            GetComponent<Renderer>().sharedMaterial.SetMatrix("_InverseView", m_Matrix);
+    }
+
+    private void OnEnable()
+    {
+        cam.depthTextureMode = DepthTextureMode.DepthNormals;
+        m_Matrix = Camera.main.cameraToWorldMatrix;
     }
 
     // Cleanup all the objects we possibly have created

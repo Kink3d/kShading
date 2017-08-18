@@ -31,7 +31,6 @@ Shader "ToonWater"
 		[Header(Waves)]
 		_WaveHeight("Height", Range(0, 1)) = 0
 		_WaveDensity("Density", Range(0, 1)) = 0.5
-		_TessellationPower("Tessellation", Range(0, 10)) = 1
 		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {}
 		[Header(Test)]
 		_Test1("Test 1", float) = 0.5
@@ -43,6 +42,7 @@ Shader "ToonWater"
 
 		Tags { "Queue"="Transparent" "RenderType"="Transparent" }
 		LOD 200
+		ZWrite Off
 
 		GrabPass
 		{
@@ -54,7 +54,7 @@ Shader "ToonWater"
 		#include "ToonShadingModel.cginc"
 		#include "ToonInput.cginc"
 		//#define UNITY_BRDF_PBS ToonBRDF
-		#pragma surface surf StandardToonWater vertex:vert /*tessellate:tessFixed*/ fullforwardshadows alpha:blend
+		#pragma surface surf StandardToonWater vertex:vert fullforwardshadows
 		#pragma target 3.0
 
 		float2 random2(float2 p)
@@ -64,7 +64,6 @@ Shader "ToonWater"
 
 		float _WaveHeight;
 		float _WaveDensity;
-		float _TessellationPower;
 
 		float Voronoi(float2 uv)
 		{
@@ -98,22 +97,6 @@ Shader "ToonWater"
 			return m_dist;
 		}
 
-		struct appdata_water 
-		{
-			float4 vertex : POSITION;
-			float4 tangent : TANGENT;
-			float3 normal : NORMAL;
-			float4 texcoord : TEXCOORD0;
-			float4 texcoord1 : TEXCOORD1;
-			fixed4 color : COLOR;
-			//#if defined(SHADER_API_XBOX360)
-			half4 texcoord2 : TEXCOORD2;
-			half4 texcoord3 : TEXCOORD3;
-			half4 texcoord4 : TEXCOORD4;
-			half4 texcoord5 : TEXCOORD5;
-			//#endif
-		};
-
 		struct Input 
 		{
 			float2 uv_MainTex;
@@ -128,9 +111,10 @@ Shader "ToonWater"
 			float4 hpos = UnityObjectToClipPos(v.vertex);
 			o.uv_MainTex = v.texcoord1;
 			o.grabUV = ComputeGrabScreenPos(hpos);
-			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
+			
 			float voronoi = Voronoi(v.texcoord1);
 			v.vertex.y += voronoi * _WaveHeight;
+			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
 		}
 
 		sampler2D _GrabTex;
@@ -139,11 +123,6 @@ Shader "ToonWater"
 		float _RefractStrength;
 		float _RefractAmp;
 		float _RefractPower;
-
-		float4 tessFixed()
-		{
-			return float4(_TessellationPower, _TessellationPower, _TessellationPower, _TessellationPower);
-		}
 
 		// Refract projection UVs
 		float4 Refraction(float4 uv)
@@ -154,26 +133,56 @@ Shader "ToonWater"
 			return projUV;
 		}
 
+		float4x4 _InverseView;
+
+		float3 DepthToWorld(float2 uv)
+		{
+			const float2 p11_22 = float2(unity_CameraProjection._11, unity_CameraProjection._22);
+			const float2 p13_31 = float2(unity_CameraProjection._13, unity_CameraProjection._23);
+			const float isOrtho = unity_OrthoParams.w;
+			const float near = _ProjectionParams.y;
+			const float far = _ProjectionParams.z;
+
+			float d = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+			#if defined(UNITY_REVERSED_Z)
+			d = 1 - d;
+			#endif
+			float zOrtho = lerp(near, far, d);
+			float zPers = near * far / lerp(far, near, d);
+			float vz = lerp(zPers, zOrtho, isOrtho);
+
+			float3 vpos = float3((uv * 2 - 1 - p13_31) / p11_22 * lerp(vz, 1, isOrtho), -vz);
+			float4 wpos = mul(_InverseView, float4(vpos, 1));
+
+			half3 color = pow(abs(cos(wpos.xyz * UNITY_PI * 4)), 20);
+			return color;
+		}
+
 		void surf (Input IN, inout SurfaceOutputStandardToonWater o) 
 		{
-			fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-
 			float3 refraction = tex2Dproj(_GrabTex, Refraction(IN.grabUV));
 			float voronoi = Voronoi(IN.uv_MainTex);
 			
 			// Set screenUV for specular calculation from Planar in BRDF
-			screenUV = IN.screenUV; 
-			
-			// Depth intersection
-			float sceneZ = LinearEyeDepth (tex2Dproj(_CameraDepthTexture, UNITY_PROJ_COORD(screenUV)).r);
-			float fragZ = screenUV.z;
-			float factor = step(0.1, abs(fragZ - sceneZ)); //If the two are similar, then there is an object intersecting with our object
+			screenUV = IN.screenUV;
 
-			float crest = step(0.5, smoothstep(.4, 1, (voronoi)));
-			//float crest = min((step(0.6, voronoi)), 1);
-			//float crest = (step(0.5, voronoi) * tex2D(_NoiseTex, IN.uv_MainTex + _Time.x).r + step(0.6, voronoi));
+			// Calculate world position from Depth texture
+			float3 worldDepth = DepthToWorld((screenUV.xy / screenUV.w));
+			worldDepth = step(_Test1, worldDepth);
 
-			o.Albedo = lerp(c.rgb, c.rgb * refraction, _RefractStrength) + crest * 0.3;
+			// Calculate noise
+			float noise = tex2D(_NoiseTex, IN.uv_MainTex * 1.5 + _Time.x).r;
+			//noise += tex2D(_NoiseTex, IN.uv_MainTex * 2 - _Time.x).r * 0.5;
+
+			// Calculate crest
+			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0);
+			crest = step(0.9, crest);
+			//crest += max(worldDepth * (_WaveHeight * 100) - noise * 15, 0);
+			crest = min(crest, 1);
+
+			// Main
+			fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
+			o.Albedo = worldDepth.y;// lerp(c.rgb, c.rgb * refraction, _RefractStrength) + (crest * 0.3);
 			o.Specular = tex2D(_SpecGlossMap, IN.uv_MainTex).rgb * _SpecColor;
 			o.Smoothness = tex2D(_SpecGlossMap, IN.uv_MainTex).a * _Glossiness;
 			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex), _BumpScale);
