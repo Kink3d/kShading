@@ -17,7 +17,7 @@ Shader "ToonWater"
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
 		[Header(Lighting)]
-		_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
+		//_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
 		[Header(Fresnel)]
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2

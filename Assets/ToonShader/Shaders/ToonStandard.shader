@@ -1,6 +1,7 @@
 ﻿Shader "ToonStandard" {
 	Properties {
-		[Header(Basic)]
+		_Mode ("", float) = 0
+		_Cutoff ("", range(0,1)) = 0.5
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
 		_SpecGlossMap("Specular Map (RGB)", 2D) = "white" {}
@@ -10,15 +11,16 @@
 		_BumpScale("Normal Scale", float) = 1
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
-		[Header(Lighting)]
-		_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
-		[Header(Fresnel)]
+		//_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
+		[Toggle]_Fresnel ("", float) = 1
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2
 		_FresnelPower ("Fresnel Power", Range(0, 1)) = 0.5
 		_FresnelDiffCont("Diffuse Contribution", Range(0, 1)) = 0.5
-		[Header(Test)]
-		_Test1("Test 1", float) = 0.5
+		
+		_SmoothnessTextureChannel("", float) = 0
+		[Toggle]_SpecularHighlights("", float) = 1
+		[Toggle]_GlossyReflections("", float) = 1
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -50,4 +52,5 @@
 		ENDCG
 	}
 	FallBack "Diffuse"
+	CustomEditor "ToonShading.ToonGUI"
 }

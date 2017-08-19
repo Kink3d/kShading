@@ -4,8 +4,9 @@
 #define TOON_BRDF_INCLUDED
 
 //sampler2D unity_NHxRoughness;
-sampler1D _LightRamp;
+//sampler1D _LightRamp;
 
+half _Fresnel;
 float3 _FresnelTint;
 float _FresnelStrength;
 float _FresnelPower;
@@ -15,9 +16,14 @@ float _Test1;
 
 half3 ToonBRDF_Fresnel(half3 diffColor, half3 viewDir, half3 normal)
 {
-	half rim = 1.0 - saturate(dot(normalize(viewDir), normal));
-	half3 fresnel = lerp(fixed3(.5, .5, .5), diffColor, _FresnelDiffCont) * pow(rim, 20 - (_FresnelPower * 20));
-	return ((_FresnelStrength * 5) * fresnel) * _FresnelTint;
+	if (_Fresnel == 1)
+	{
+		half rim = 1.0 - saturate(dot(normalize(viewDir), normal));
+		half3 fresnel = lerp(fixed3(.5, .5, .5), diffColor, _FresnelDiffCont) * pow(rim, 20 - (_FresnelPower * 20));
+		return ((_FresnelStrength * 5) * fresnel) * _FresnelTint;
+	}
+	else
+		return half3(0, 0, 0);
 }
 
 half3 ToonBRDF_Direct(half3 specColor, half rlPow4, half smoothness, half nl)
@@ -30,7 +36,7 @@ half3 ToonBRDF_Direct(half3 specColor, half rlPow4, half smoothness, half nl)
 #if defined(_SPECULARHIGHLIGHTS_OFF)
 	specular = 0.0;
 #endif
-	return specular * nl * specColor;
+	return specular * specColor;
 }
 
 half3 ToonBRDF_Indirect(half3 diffColor, half3 specColor, UnityIndirect indirect, half grazingTerm, half fresnelTerm)
@@ -40,11 +46,12 @@ half3 ToonBRDF_Indirect(half3 diffColor, half3 specColor, UnityIndirect indirect
 	return c;
 }
 
-half3 ToonBRDF_Diffuse(half3 diffColor, half3 viewDir, half3 lightDir, half3 normal, float3 lightColor)
+half3 ToonBRDF_Diffuse(half3 diffColor, half3 lightDir, half3 normal, float3 lightColor)
 {
 	lightDir = normalize(lightDir);
 	float rampCoord = dot(lightDir, normal) * 0.5 + 0.5; // Map value from [-1, 1] to [0, 1]
-	float3 diffuse = tex1D(_LightRamp, rampCoord) * lightColor;
+	float3 diffuse = step(0.1, saturate(dot(normal, lightDir)));
+	//float3 diffuse = tex1D(_LightRamp, rampCoord) * lightColor;
 	return diffuse;
 }
 
@@ -71,7 +78,7 @@ half4 ToonBRDF(half3 diffColor, half3 specColor, half oneMinusReflectivity, half
 	half fresnelTerm = rlPow4AndFresnelTerm.y;
 
 	half3 specular = ToonBRDF_Direct(specColor, rlPow4, smoothness, nl);
-	half3 diffuse = ToonBRDF_Diffuse(diffColor, viewDir, light.dir, normal, light.color);
+	half3 diffuse = ToonBRDF_Diffuse(diffColor, light.dir, normal, light.color);
 	half3 fresnel = ToonBRDF_Fresnel(diffColor, viewDir, normal);
 
 	half grazingTerm = saturate(smoothness + (1 - oneMinusReflectivity));
