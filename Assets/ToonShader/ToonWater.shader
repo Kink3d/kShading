@@ -27,10 +27,7 @@ Shader "ToonWater"
 		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {}
 		[Header(Refraction)]
 		_Transmission("Transmission", Range(0, 1)) = 0.5
-		_RefractStrength("Strength", Range(0, 1)) = 0.5
 		_RefractPower("Power", Range(0, 1)) = 0.1
-		//_RefractAmp("Amplifcation", Range(0, 3)) = 1
-		//_RefractDepth("Depth", Range(0, 1)) = 0.1
 		[Header(Waves)]
 		_WaveHeight("Height", Range(0, 1)) = 0
 		_WaveDensity("Density", Range(0, 1)) = 0.5
@@ -104,39 +101,33 @@ Shader "ToonWater"
 
 		struct Input 
 		{
+			float2 uv_MainTex;
 			float3 texPos; // XY is uv_MainTex Z is YPos
-			float4 grabUV;
 			float4 screenUV;
 			//float3 position;
 		};
 
-		float4 grabUV;
-
 		void vert(inout appdata_full v, out Input o) 
 		{
-			float4 hpos = UnityObjectToClipPos(v.vertex);
 			float voronoi = Voronoi(v.texcoord1);
 			v.vertex.y += voronoi * _WaveHeight; // Move vertex y for voronoi
-
+			o.uv_MainTex = v.texcoord;
 			o.texPos = float3(v.texcoord.x, v.texcoord.y, v.vertex.y);
-			o.grabUV = ComputeGrabScreenPos(hpos);
 			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
 		}
 
 		sampler2D _GrabTex;
 		sampler2D _NoiseTex;
 		sampler2D _CameraDepthTexture;
-		float _RefractStrength;
 		float _RefractPower;
 		float _Transmission;
 
 		// Refract projection UVs
-		float4 Refraction(float4 uv, float worldDepth)
+		float2 Refraction(float2 uv)
 		{
-			fixed4 projUV = UNITY_PROJ_COORD(uv);
-			projUV.xy = projUV.xy + (_RefractPower * .5) * sin((1 - projUV.y) * _SinTime.y);// +(_RefractAmp * .1));
-			//projUV.xy = projUV.xy + (_RefractPower * .1) * sin((1 - projUV.y) * (_Time.w * _RefractAmp * .1));
-			return projUV;
+			uv.x += (_RefractPower * .1) * sin((1 - uv.xy) * .25 * _WaveHeight * (_SinTime.w) * sin(uv.y * 50));
+			//uv += (_RefractPower * .1) * sin((1 - uv.y) * (_Time.w * .01));
+			return uv;
 		}
 
 		float4x4 _InverseView; // Cameras world matrix (from C#)
@@ -173,19 +164,20 @@ Shader "ToonWater"
 			float voronoi = Voronoi(IN.texPos.xy);
 			// Set screenUV for specular calculation from Planar in BRDF
 			screenUV = IN.screenUV;
-			// Calculate world position from Depth texture
-			float3 worldDepth = DepthToWorld((screenUV.xy / screenUV.w), IN.texPos.z);
-			
+			// Refract UVs
+			float2 refractedWSUV = Refraction(screenUV.xy / screenUV.w);
+			// Calculate world position from Depth texture (with refraction)
+			float3 refractedWorldPos = DepthToWorld(refractedWSUV, IN.texPos.z);
 			// Simple noise
 			float noise = tex2D(_NoiseTex, IN.texPos.xy * 1.5 + _Time.x).r;
 			// Crest
 			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0); // Wave peaks
-			crest += max((worldDepth.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Intersections
+			crest += max((refractedWorldPos.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Intersections
 			crest = min(step(0.9, crest), 1) * _WaveCrest; // Step
 			// Depth visibility
-			float visibility = max(pow(_Transmission, max(-worldDepth.y, 0)) - (1 - _Transmission), 0);
+			float visibility = max(pow(_Transmission, max(-refractedWorldPos.y, 0)) - (1 - _Transmission), 0);
 			// Refraction
-			float3 refraction = tex2Dproj(_GrabTex, Refraction(IN.grabUV, worldDepth.y));
+			float3 refraction = tex2D(_GrabTex, refractedWSUV);
 			float3 underwater = lerp(_Color, (refraction * _Color), visibility);
 
 			// Main
@@ -193,7 +185,7 @@ Shader "ToonWater"
 			o.Albedo = underwater + crest;
 			o.Specular = tex2D(_SpecGlossMap, IN.texPos.xy).rgb * _SpecColor;
 			o.Smoothness = tex2D(_SpecGlossMap, IN.texPos.xy).a * _Glossiness;
-			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.texPos.xy), _BumpScale);
+			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex.xy), _BumpScale);
 			o.Emission = tex2D(_EmissionMap, IN.texPos.xy).rgb * _EmissionColor;
 			//o.Alpha = c.a;
 		}
