@@ -1,4 +1,6 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+﻿// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
 Shader "ToonWater" 
 {
@@ -31,6 +33,7 @@ Shader "ToonWater"
 		[Header(Waves)]
 		_WaveHeight("Height", Range(0, 1)) = 0
 		_WaveDensity("Density", Range(0, 1)) = 0.5
+		_WaveCrest("Crest", Range(0, 1)) = 0.5
 		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {}
 		[Header(Test)]
 		_Test1("Test 1", float) = 0.5
@@ -64,6 +67,7 @@ Shader "ToonWater"
 
 		float _WaveHeight;
 		float _WaveDensity;
+		float _WaveCrest;
 
 		float Voronoi(float2 uv)
 		{
@@ -99,9 +103,10 @@ Shader "ToonWater"
 
 		struct Input 
 		{
-			float2 uv_MainTex;
+			float3 texPos; // XY is uv_MainTex Z is YPos
 			float4 grabUV;
 			float4 screenUV;
+			//float3 position;
 		};
 
 		float4 grabUV;
@@ -109,11 +114,11 @@ Shader "ToonWater"
 		void vert(inout appdata_full v, out Input o) 
 		{
 			float4 hpos = UnityObjectToClipPos(v.vertex);
-			o.uv_MainTex = v.texcoord1;
-			o.grabUV = ComputeGrabScreenPos(hpos);
-			
 			float voronoi = Voronoi(v.texcoord1);
-			v.vertex.y += voronoi * _WaveHeight;
+			v.vertex.y += voronoi * _WaveHeight; // Move vertex y for voronoi
+
+			o.texPos = float3(v.texcoord.x, v.texcoord.y, v.vertex.y);
+			o.grabUV = ComputeGrabScreenPos(hpos);
 			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
 		}
 
@@ -135,7 +140,7 @@ Shader "ToonWater"
 
 		float4x4 _InverseView;
 
-		float3 DepthToWorld(float2 uv)
+		float3 DepthToWorld(float2 uv, float vHeight)
 		{
 			const float2 p11_22 = float2(unity_CameraProjection._11, unity_CameraProjection._22);
 			const float2 p13_31 = float2(unity_CameraProjection._13, unity_CameraProjection._23);
@@ -154,39 +159,40 @@ Shader "ToonWater"
 			float3 vpos = float3((uv * 2 - 1 - p13_31) / p11_22 * lerp(vz, 1, isOrtho), -vz);
 			float4 wpos = mul(_InverseView, float4(vpos, 1));
 
-			half3 color = pow(abs(cos(wpos.xyz * UNITY_PI * 4)), 20);
-			return color;
+			wpos = mul(unity_WorldToObject, wpos); // Back to local object space, can go straight to this?
+			wpos.y += vHeight;
+
+			return wpos;
 		}
 
 		void surf (Input IN, inout SurfaceOutputStandardToonWater o) 
 		{
+			// Refraction
 			float3 refraction = tex2Dproj(_GrabTex, Refraction(IN.grabUV));
-			float voronoi = Voronoi(IN.uv_MainTex);
+			// Voronoi
+			float voronoi = Voronoi(IN.texPos.xy);
 			
 			// Set screenUV for specular calculation from Planar in BRDF
 			screenUV = IN.screenUV;
 
 			// Calculate world position from Depth texture
-			float3 worldDepth = DepthToWorld((screenUV.xy / screenUV.w));
-			worldDepth = step(_Test1, worldDepth);
+			float3 worldDepth = DepthToWorld((screenUV.xy / screenUV.w), IN.texPos.z);
 
 			// Calculate noise
-			float noise = tex2D(_NoiseTex, IN.uv_MainTex * 1.5 + _Time.x).r;
-			//noise += tex2D(_NoiseTex, IN.uv_MainTex * 2 - _Time.x).r * 0.5;
+			float noise = tex2D(_NoiseTex, IN.texPos.xy * 1.5 + _Time.x).r;
 
 			// Calculate crest
-			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0);
-			crest = step(0.9, crest);
-			//crest += max(worldDepth * (_WaveHeight * 100) - noise * 15, 0);
-			crest = min(crest, 1);
+			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0); // Wave peaks
+			crest += max((worldDepth.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Intersections
+			crest = min(step(0.9, crest), 1) * _WaveCrest; // Step
 
 			// Main
-			fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
-			o.Albedo = worldDepth.y;// lerp(c.rgb, c.rgb * refraction, _RefractStrength) + (crest * 0.3);
-			o.Specular = tex2D(_SpecGlossMap, IN.uv_MainTex).rgb * _SpecColor;
-			o.Smoothness = tex2D(_SpecGlossMap, IN.uv_MainTex).a * _Glossiness;
-			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex), _BumpScale);
-			o.Emission = tex2D(_EmissionMap, IN.uv_MainTex).rgb * _EmissionColor;
+			fixed4 c = tex2D(_MainTex, IN.texPos.xy) * _Color;
+			o.Albedo = lerp(c.rgb, c.rgb * refraction, _RefractStrength) + crest;
+			o.Specular = tex2D(_SpecGlossMap, IN.texPos.xy).rgb * _SpecColor;
+			o.Smoothness = tex2D(_SpecGlossMap, IN.texPos.xy).a * _Glossiness;
+			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.texPos.xy), _BumpScale);
+			o.Emission = tex2D(_EmissionMap, IN.texPos.xy).rgb * _EmissionColor;
 			o.Alpha = c.a;
 		}
 		ENDCG
