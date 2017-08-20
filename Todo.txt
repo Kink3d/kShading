@@ -1,0 +1,10 @@
+All
+
+- Transmission is additive. Never zeros under no light
+- Shader keywords arent getting enabled 
+
+Water
+
+- Matrices dont update
+- Crashes
+	More than one face
