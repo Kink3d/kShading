@@ -3,16 +3,13 @@
 #ifndef TOON_BRDF_INCLUDED
 #define TOON_BRDF_INCLUDED
 
-//sampler2D unity_NHxRoughness;
-//sampler1D _LightRamp;
-
 half _Fresnel;
 float3 _FresnelTint;
 float _FresnelStrength;
 float _FresnelPower;
 float _FresnelDiffCont;
 
-float _Test1;
+float _Transmission;
 
 half3 ToonBRDF_Fresnel(half3 diffColor, half3 viewDir, half3 normal)
 {
@@ -36,7 +33,7 @@ half3 ToonBRDF_Direct(half3 specColor, half rlPow4, half smoothness, half nl)
 #if defined(_SPECULARHIGHLIGHTS_OFF)
 	specular = 0.0;
 #endif
-	return specular * specColor;
+	return specular * nl * specColor;
 }
 
 half3 ToonBRDF_Indirect(half3 diffColor, half3 specColor, UnityIndirect indirect, half grazingTerm, half fresnelTerm)
@@ -49,10 +46,9 @@ half3 ToonBRDF_Indirect(half3 diffColor, half3 specColor, UnityIndirect indirect
 half3 ToonBRDF_Diffuse(half3 diffColor, half3 lightDir, half3 normal, float3 lightColor)
 {
 	lightDir = normalize(lightDir);
-	float rampCoord = dot(lightDir, normal) * 0.5 + 0.5; // Map value from [-1, 1] to [0, 1]
-	float3 diffuse = step(0.1, saturate(dot(normal, lightDir)));
-	//float3 diffuse = tex1D(_LightRamp, rampCoord) * lightColor;
-	return diffuse;
+	float3 diffuse = saturate((dot(normal, lightDir) + _Transmission) / ((1 + _Transmission) * (1 + _Transmission)));
+	diffuse = min(step(0.01, diffuse) + (_Transmission), 1) * (1 - _Transmission * 0.5);// -(_Transmission * 0.5);
+	return diffuse;// * lightColor; // Need to reapply lightColor
 }
 
 // Old school, not microfacet based Modified Normalized Blinn-Phong BRDF

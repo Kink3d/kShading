@@ -6,35 +6,34 @@ Shader "ToonWater"
 {
 	Properties 
 	{
-		[Header(Basic)]
+		_Mode("", float) = 0
+		_Cutoff("", range(0,1)) = 0.5
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
 		_SpecGlossMap("Specular Map (RGB)", 2D) = "white" {}
 		_SpecColor("Specular Color", Color) = (0,0,0,0)
 		_Glossiness("Smoothness", Range(0,1)) = 0.5
+		_Transmission("Transmission", Range(0, 1)) = 0.5
 		_BumpMap("Normal Map", 2D) = "bump" {}
 		_BumpScale("Normal Scale", float) = 1
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
-		[Header(Lighting)]
-		//_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
-		[Header(Fresnel)]
+		[Toggle]_Fresnel("", float) = 1
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2
 		_FresnelPower ("Fresnel Power", Range(0, 1)) = 0.5
 		_FresnelDiffCont("Diffuse Contribution", Range(0, 1)) = 0.5
-		[Header(Reflection)]
-		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {}
-		[Header(Refraction)]
-		_Transmission("Transmission", Range(0, 1)) = 0.5
-		_RefractPower("Power", Range(0, 1)) = 0.1
-		[Header(Waves)]
+
+		_SmoothnessTextureChannel("", float) = 0
+		[Toggle]_SpecularHighlights("", float) = 1
+		[Toggle]_GlossyReflections("", float) = 1
+
 		_WaveHeight("Height", Range(0, 1)) = 0
-		_WaveDensity("Density", Range(0, 1)) = 0.5
+		_WaveScale("Scale", Range(0, 1)) = 0.5
 		_WaveCrest("Crest", Range(0, 1)) = 0.5
+		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {}
 		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {}
-		[Header(Test)]
-		_Test1("Test 1", float) = 0.5
+		
 	}
 
 	SubShader 
@@ -64,23 +63,22 @@ Shader "ToonWater"
 		}
 
 		float _WaveHeight;
-		float _WaveDensity;
+		float _WaveScale;
 		float _WaveCrest;
 
 		float Voronoi(float2 uv)
 		{
-			float2 st = uv;// gl_FragCoord.xy / u_resolution.xy;
-			//st.x *= u_resolution.x / u_resolution.y;
+			float2 st = uv;
 
 			// Scale 
-			st *= 10 - _WaveDensity * 10;
+			st *= 10 - _WaveScale * 10;
 
 			// Tile the space
 			float2 i_st = floor(st);
 			float2 f_st = frac(st);
 
-			float m_dist = 10.;  // minimun distance
-			float2 m_point;        // minimum point
+			float m_dist = 10.;	// minimun distance
+			float2 m_point;     // minimum point
 
 			for (int j = -1; j <= 1; j++) {
 				for (int i = -1; i <= 1; i++) {
@@ -102,9 +100,8 @@ Shader "ToonWater"
 		struct Input 
 		{
 			float2 uv_MainTex;
-			float3 texPos; // XY is uv_MainTex Z is YPos
+			float3 position;
 			float4 screenUV;
-			//float3 position;
 		};
 
 		void vert(inout appdata_full v, out Input o) 
@@ -112,21 +109,18 @@ Shader "ToonWater"
 			float voronoi = Voronoi(v.texcoord1);
 			v.vertex.y += voronoi * _WaveHeight; // Move vertex y for voronoi
 			o.uv_MainTex = v.texcoord;
-			o.texPos = float3(v.texcoord.x, v.texcoord.y, v.vertex.y);
+			o.position = v.vertex;
 			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
 		}
 
 		sampler2D _GrabTex;
 		sampler2D _NoiseTex;
 		sampler2D _CameraDepthTexture;
-		float _RefractPower;
-		float _Transmission;
 
 		// Refract projection UVs
 		float2 Refraction(float2 uv)
 		{
-			uv.x += (_RefractPower * .1) * sin((1 - uv.xy) * .25 * _WaveHeight * (_SinTime.w) * sin(uv.y * 50));
-			//uv += (_RefractPower * .1) * sin((1 - uv.y) * (_Time.w * .01));
+			uv.x += 0.1 * sin((1 - uv.xy) * .25 * _WaveHeight * (_SinTime.w) * sin(uv.y * 50));
 			return uv;
 		}
 
@@ -161,15 +155,15 @@ Shader "ToonWater"
 		void surf (Input IN, inout SurfaceOutputStandardToonWater o) 
 		{
 			// Voronoi noise
-			float voronoi = Voronoi(IN.texPos.xy);
+			float voronoi = Voronoi(IN.uv_MainTex);
 			// Set screenUV for specular calculation from Planar in BRDF
 			screenUV = IN.screenUV;
 			// Refract UVs
 			float2 refractedWSUV = Refraction(screenUV.xy / screenUV.w);
 			// Calculate world position from Depth texture (with refraction)
-			float3 refractedWorldPos = DepthToWorld(refractedWSUV, IN.texPos.z);
+			float3 refractedWorldPos = DepthToWorld(refractedWSUV, IN.position.y);
 			// Simple noise
-			float noise = tex2D(_NoiseTex, IN.texPos.xy * 1.5 + _Time.x).r;
+			float noise = tex2D(_NoiseTex, IN.uv_MainTex * 1.5 + _Time.x).r;
 			// Crest
 			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0); // Wave peaks
 			crest += max((refractedWorldPos.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Intersections
@@ -181,15 +175,16 @@ Shader "ToonWater"
 			float3 underwater = lerp(_Color, (refraction * _Color), visibility);
 
 			// Main
-			//fixed4 c = tex2D(_MainTex, IN.texPos.xy) * _Color;
+			//fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
 			o.Albedo = underwater + crest;
-			o.Specular = tex2D(_SpecGlossMap, IN.texPos.xy).rgb * _SpecColor;
-			o.Smoothness = tex2D(_SpecGlossMap, IN.texPos.xy).a * _Glossiness;
-			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex.xy), _BumpScale);
-			o.Emission = tex2D(_EmissionMap, IN.texPos.xy).rgb * _EmissionColor;
+			o.Specular = tex2D(_SpecGlossMap, IN.uv_MainTex).rgb * _SpecColor;
+			o.Smoothness = tex2D(_SpecGlossMap, IN.uv_MainTex).a * _Glossiness;
+			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex), _BumpScale);
+			o.Emission = tex2D(_EmissionMap, IN.uv_MainTex).rgb * _EmissionColor;
 			//o.Alpha = c.a;
 		}
 		ENDCG
 	}
 	FallBack "Diffuse"
+	CustomEditor "ToonShading.ToonGUI"
 }

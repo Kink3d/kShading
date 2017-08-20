@@ -7,11 +7,11 @@
 		_SpecGlossMap("Specular Map (RGB)", 2D) = "white" {}
 		_SpecColor("Specular Color", Color) = (0,0,0,0)
 		_Glossiness("Smoothness", Range(0,1)) = 0.5
+		_Transmission("Transmission", Range(0,1)) = 0
 		_BumpMap("Normal Map", 2D) = "bump" {}
 		_BumpScale("Normal Scale", float) = 1
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
-		//_LightRamp ("Lighting Ramp (RGB)", 2D) = "white" {}
 		[Toggle]_Fresnel ("", float) = 1
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2

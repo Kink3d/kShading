@@ -6,6 +6,12 @@ namespace ToonShading
 {
     public class ToonGUI : ShaderGUI
     {
+        private enum WorkflowMode
+        {
+            Default,
+            Water
+        }
+
         public enum BlendMode
         {
             Opaque,
@@ -24,16 +30,24 @@ namespace ToonShading
         {
             public static GUIContent uvSetLabel = new GUIContent("UV Set");
 
+            // Main Properties
             public static GUIContent albedoText = new GUIContent("Albedo", "Albedo (RGB) and Transparency (A)");
             public static GUIContent alphaCutoffText = new GUIContent("Alpha Cutoff", "Threshold for alpha cutoff");
             public static GUIContent specularMapText = new GUIContent("Specular", "Specular (RGB) and Smoothness (A)");
             public static GUIContent smoothnessText = new GUIContent("Smoothness", "Smoothness value");
             //public static GUIContent smoothnessScaleText = new GUIContent("Smoothness", "Smoothness scale factor");
             public static GUIContent smoothnessMapChannelText = new GUIContent("Source", "Smoothness texture and channel");
+            public static GUIContent transmissionText = new GUIContent("Transmission", "Transmission");
             public static GUIContent normalMapText = new GUIContent("Normal Map", "Normal Map");
             //public static GUIContent occlusionText = new GUIContent("Occlusion", "Occlusion (G)");
-            //public static GUIContent subsurfaceText = new GUIContent("Color", "Subsurface (RGB)");
             public static GUIContent emissionText = new GUIContent("Color", "Emission (RGB)");
+
+            // Water Properties
+            public static GUIContent waveHeightText = new GUIContent("Wave Height", "Wave Height");
+            public static GUIContent waveScaleText = new GUIContent("Wave Scale", "Wave Scale");
+            public static GUIContent waveCrestText = new GUIContent("Wave Crest", "Wave Crest");
+
+            // Rendering Options
             public static GUIContent highlightsText = new GUIContent("Specular Highlights", "Specular Highlights");
             public static GUIContent reflectionsText = new GUIContent("Reflections", "Glossy Reflections");
             public static GUIContent fresnelText = new GUIContent("Fresnel", "Fresnel");
@@ -42,14 +56,19 @@ namespace ToonShading
             public static GUIContent fresnelPowerText = new GUIContent("Power", "Fresnel power");
             public static GUIContent diffuseContributionText = new GUIContent("Diffuse Contribution", "Amount diffuse color contributes to fresnel color");
 
+            // Titles
             public static string primaryPropertiesText = "Main Properties";
+            public static string waterPropertiesText = "Water Properties";
             public static string renderingOptionsText = "Rendering Options";
             public static string renderingMode = "Rendering Mode";
             public static string advancedText = "Advanced Options";
+
+            //Misc
             public static GUIContent emissiveWarning = new GUIContent("Emissive value is animated but the material has not been configured to support emissive. Please make sure the material itself has some amount of emissive.");
             public static readonly string[] blendNames = Enum.GetNames(typeof(BlendMode));
         }
 
+        // Main Properties
         MaterialProperty blendMode = null;
         MaterialProperty albedoMap = null;
         MaterialProperty albedoColor = null;
@@ -59,13 +78,20 @@ namespace ToonShading
         MaterialProperty smoothness = null;
         //MaterialProperty smoothnessScale = null;
         MaterialProperty smoothnessMapChannel = null;
+        MaterialProperty transmission = null;
         MaterialProperty bumpMap = null;
         MaterialProperty bumpScale = null;
         //MaterialProperty occlusionStrength = null;
         //MaterialProperty occlusionMap = null;
-        //MaterialProperty subsurfaceColor = null;
         MaterialProperty emissionColorForRendering = null;
         MaterialProperty emissionMap = null;
+
+        // Water Properties
+        MaterialProperty waveHeight = null;
+        MaterialProperty waveScale = null;
+        MaterialProperty waveCrest = null;
+
+        // Rendering Options
         MaterialProperty fresnel = null;
         MaterialProperty fresnelTint = null;
         MaterialProperty fresnelStrength = null;
@@ -74,13 +100,16 @@ namespace ToonShading
         MaterialProperty highlights = null;
         MaterialProperty reflections = null;
 
+        // Misc
         MaterialEditor m_MaterialEditor;
+        WorkflowMode m_WorkflowMode = WorkflowMode.Default;
         ColorPickerHDRConfig m_ColorPickerHDRConfig = new ColorPickerHDRConfig(0f, 99f, 1 / 99f, 3f);
 
         bool m_FirstTimeApply = true;
 
         public void FindProperties(MaterialProperty[] props)
         {
+            // Main Properties
             blendMode = FindProperty("_Mode", props);
             albedoMap = FindProperty("_MainTex", props);
             albedoColor = FindProperty("_Color", props);
@@ -90,12 +119,20 @@ namespace ToonShading
             smoothness = FindProperty("_Glossiness", props);
             //smoothnessScale = FindProperty("_GlossMapScale", props, false);
             smoothnessMapChannel = FindProperty("_SmoothnessTextureChannel", props, false);
+            transmission = FindProperty("_Transmission", props);
             bumpScale = FindProperty("_BumpScale", props);
             bumpMap = FindProperty("_BumpMap", props);
             //occlusionStrength = FindProperty("_OcclusionStrength", props);
             //occlusionMap = FindProperty("_OcclusionMap", props);
             emissionColorForRendering = FindProperty("_EmissionColor", props);
             emissionMap = FindProperty("_EmissionMap", props);
+
+            // Water Properties
+            waveHeight = FindProperty("_WaveHeight", props, false);
+            waveScale = FindProperty("_WaveScale", props, false);
+            waveCrest = FindProperty("_WaveCrest", props, false);
+
+            // Rendering Options
             fresnel = FindProperty("_Fresnel", props);
             fresnelTint = FindProperty("_FresnelTint", props);
             fresnelStrength = FindProperty("_FresnelStrength", props);
@@ -119,7 +156,7 @@ namespace ToonShading
                 MaterialChanged(material);
                 m_FirstTimeApply = false;
             }
-
+            DetermineWorkflow(props);
             ShaderPropertiesGUI(material);
         }
 
@@ -135,15 +172,19 @@ namespace ToonShading
                 GUILayout.Label(Styles.primaryPropertiesText, EditorStyles.boldLabel);
                 DoAlbedoArea(material);
                 DoSpecularArea();
+                DoSubsurfaceArea();
                 DoNormalArea();
                 DoOcclusionArea();
-                DoSubsurfaceArea();
                 DoEmissionArea(material);
                 EditorGUI.BeginChangeCheck();
                 m_MaterialEditor.TextureScaleOffsetProperty(albedoMap);
                 if (EditorGUI.EndChangeCheck())
                     emissionMap.textureScaleAndOffset = albedoMap.textureScaleAndOffset; // Apply the main texture scale and offset to the emission texture as well, for Enlighten's sake
 
+                EditorGUILayout.Space();
+
+                // Water properties
+                DoWaterArea(material);
                 EditorGUILayout.Space();
 
                 // Rendering properties
@@ -154,9 +195,42 @@ namespace ToonShading
                     m_MaterialEditor.ShaderProperty(highlights, Styles.highlightsText);
                 if (reflections != null)
                     m_MaterialEditor.ShaderProperty(reflections, Styles.reflectionsText);
-
-                EditorGUILayout.Space();
             }
+            if (EditorGUI.EndChangeCheck())
+            {
+                foreach (var obj in blendMode.targets)
+                    MaterialChanged((Material)obj);
+            }
+
+            EditorGUILayout.Space();
+
+            GUILayout.Label(Styles.advancedText, EditorStyles.boldLabel);
+            m_MaterialEditor.RenderQueueField();
+            m_MaterialEditor.EnableInstancingField();
+            m_MaterialEditor.DoubleSidedGIField();
+        }
+
+        internal void DetermineWorkflow(MaterialProperty[] props)
+        {
+            if (FindProperty("_WaveHeight", props, false) != null)
+                m_WorkflowMode = WorkflowMode.Water;
+            else
+                m_WorkflowMode = WorkflowMode.Default;
+        }
+
+        public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
+        {
+            // _Emission property is lost after assigning Standard shader to the material
+            // thus transfer it before assigning the new shader
+            /*if (material.HasProperty("_Emission"))
+            {
+                material.SetColor("_EmissionColor", material.GetColor("_Emission"));
+            }*/
+
+            base.AssignNewShaderToMaterial(material, oldShader, newShader);
+
+            //DetermineWorkflow(MaterialEditor.GetMaterialProperties(new Material[] { material }));
+            MaterialChanged(material);
         }
 
         void DoBlendModeArea()
@@ -218,7 +292,7 @@ namespace ToonShading
 
         void DoSubsurfaceArea()
         {
-
+            m_MaterialEditor.ShaderProperty(transmission, Styles.transmissionText, 2);
         }
 
         void DoEmissionArea(Material material)
@@ -238,6 +312,17 @@ namespace ToonShading
 
                 // change the GI flag and fix it up with emissive as black if necessary
                 m_MaterialEditor.LightmapEmissionFlagsProperty(MaterialEditor.kMiniTextureFieldLabelIndentLevel, true);
+            }
+        }
+
+        void DoWaterArea(Material material)
+        {
+            if(m_WorkflowMode == WorkflowMode.Water)
+            {
+                GUILayout.Label(Styles.waterPropertiesText, EditorStyles.boldLabel);
+                m_MaterialEditor.ShaderProperty(waveHeight, Styles.waveHeightText);
+                m_MaterialEditor.ShaderProperty(waveScale, Styles.waveScaleText);
+                m_MaterialEditor.ShaderProperty(waveCrest, Styles.waveCrestText);
             }
         }
 
@@ -272,7 +357,7 @@ namespace ToonShading
             MaterialEditor.FixupEmissiveFlag(material);
             bool shouldEmissionBeEnabled = (material.globalIlluminationFlags & MaterialGlobalIlluminationFlags.EmissiveIsBlack) == 0;
             SetKeyword(material, "_EMISSION", shouldEmissionBeEnabled);
-            SetKeyword(material, "_FRESNEL", true);
+            SetKeyword(material, "_FRESNEL", material.GetFloat("_Fresnel") == 1);
 
             if (material.HasProperty("_SmoothnessTextureChannel"))
                 SetKeyword(material, "_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A", GetSmoothnessMapChannel(material) == SmoothnessMapChannel.AlbedoAlpha);

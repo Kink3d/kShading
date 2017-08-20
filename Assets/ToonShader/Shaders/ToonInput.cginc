@@ -3,8 +3,10 @@
 #ifndef TOON_INPUT_INCLUDED
 #define TOON_INPUT_INCLUDED
 
+half		_Mode;
+
 half4       _Color;
-//half      _Cutoff;
+half		_Cutoff;
 
 sampler2D   _MainTex;
 //float4    _MainTex_ST;
