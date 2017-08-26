@@ -1,0 +1,155 @@
+fileFormatVersion: 2
+guid: b9847c60b7cd09f4cbee8ec743c8f75e
+timeCreated: 1503753223
+licenseType: Pro
+ModelImporter:
+  serializedVersion: 19
+  fileIDToRecycleName:
+    100000: Box001
+    100002: //RootNode
+    100004: Face
+    100006: Hair006
+    100008: Head
+    100010: Leg_M05
+    100012: Object001
+    100014: Hat
+    100016: Torso
+    100018: Boat
+    100020: Cylinder003
+    100022: Float
+    100024: Hair
+    100026: Legs
+    100028: Oar
+    100030: Rod
+    400000: Box001
+    400002: //RootNode
+    400004: Face
+    400006: Hair006
+    400008: Head
+    400010: Leg_M05
+    400012: Object001
+    400014: Hat
+    400016: Torso
+    400018: Boat
+    400020: Cylinder003
+    400022: Float
+    400024: Hair
+    400026: Legs
+    400028: Oar
+    400030: Rod
+    2300000: Box001
+    2300002: Face
+    2300004: Hair006
+    2300006: Head
+    2300008: Leg_M05
+    2300010: Object001
+    2300012: Hat
+    2300014: Torso
+    2300016: Boat
+    2300018: Cylinder003
+    2300020: Float
+    2300022: Hair
+    2300024: Legs
+    2300026: Oar
+    2300028: Rod
+    3300000: Box001
+    3300002: Face
+    3300004: Hair006
+    3300006: Head
+    3300008: Leg_M05
+    3300010: Object001
+    3300012: Hat
+    3300014: Torso
+    3300016: Boat
+    3300018: Cylinder003
+    3300020: Float
+    3300022: Hair
+    3300024: Legs
+    3300026: Oar
+    3300028: Rod
+    4300000: Face
+    4300002: Head
+    4300004: Leg_M05
+    4300006: Hair006
+    4300008: Box001
+    4300010: Object001
+    4300012: Hat
+    4300014: Torso
+    4300016: Hair
+    4300018: Legs
+    4300020: Rod
+    4300022: Boat
+    4300024: Oar
+    4300026: Cylinder003
+    4300028: Float
+    9500000: //RootNode
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importBlendShapes: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: 
+    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
