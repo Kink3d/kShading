@@ -1,0 +1,3 @@
+[submodule "PostProcessing"]
+	path = PostProcessing
+	url = git@github.com:Unity-Technologies/PostProcessing
