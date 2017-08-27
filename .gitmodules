@@ -1,3 +1,4 @@
 [submodule "Assets/PostProcessing"]
 	path = Assets/PostProcessing
 	url = git@github.com:Unity-Technologies/PostProcessing
+	branch = v2
