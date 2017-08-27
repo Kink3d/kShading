@@ -7,15 +7,22 @@ namespace ToonShading
     [ExecuteInEditMode]
     public class ToonWater : MonoBehaviour
     {
+        public bool enableReflection = true;
         public LayerMask reflectLayers = -1;
         public int textureSize = 256;
         public float clipPlaneOffset = 0.07f;
+
+        public RenderTexture rt;
+        [Range(0f, 1f)] public float waveHeight;
+        [Range(0f, 1f)] public float waveScale;
 
         private Dictionary<Camera, Camera> m_ReflectionCameras = new Dictionary<Camera, Camera>(); // Camera -> Camera table
         private RenderTexture m_ReflectionTexture;
         private int m_OldReflectionTextureSize;
         Texture2D m_NoiseTexture;
         Matrix4x4 m_Matrix;
+
+        private Material m_VoronoiMaterial;
 
         private void OnEnable()
         {
@@ -27,25 +34,41 @@ namespace ToonShading
             if (Camera.main.depthTextureMode == DepthTextureMode.None)
                 Camera.main.depthTextureMode = DepthTextureMode.Depth;
 
-            m_Matrix = Camera.main.cameraToWorldMatrix;
-            if (m_Matrix != null)
-                GetComponent<Renderer>().sharedMaterial.SetMatrix("_InverseView", m_Matrix);
+            if(enableReflection)
+            {
+                m_Matrix = Camera.main.cameraToWorldMatrix;
+                if (m_Matrix != null)
+                    GetComponent<Renderer>().sharedMaterial.SetMatrix("_InverseView", m_Matrix);
+            }
+
+            if (m_VoronoiMaterial == null)
+                m_VoronoiMaterial = new Material(Shader.Find("Hidden/Voronoi"));
         }
 
         // Cleanup all the objects we possibly have created
         void OnDisable()
         {
-            if (m_ReflectionTexture)
+            if (enableReflection)
             {
-                DestroyImmediate(m_ReflectionTexture);
-                m_ReflectionTexture = null;
+                if (m_ReflectionTexture)
+                {
+                    DestroyImmediate(m_ReflectionTexture);
+                    m_ReflectionTexture = null;
+                }
+                foreach (var kvp in m_ReflectionCameras)
+                {
+                    DestroyImmediate((kvp.Value).gameObject);
+                }
+                m_ReflectionCameras.Clear();
             }
-            foreach (var kvp in m_ReflectionCameras)
+            if(!enableReflection)
             {
-                DestroyImmediate((kvp.Value).gameObject);
+                GetComponent<Renderer>().sharedMaterial.SetTexture("_ReflectionTex", null);
             }
-            m_ReflectionCameras.Clear();
-
+            if(m_VoronoiMaterial)
+            {
+                m_VoronoiMaterial = null;
+            }
             m_NoiseTexture = null;
         }
 
@@ -58,44 +81,54 @@ namespace ToonShading
             if (!cam)
                 return;
 
-            Camera reflectionCamera;
-            CreateObjects(cam, out reflectionCamera);
+            if (enableReflection)
+            {
+                Camera reflectionCamera;
+                CreateObjects(cam, out reflectionCamera);
 
-            // find out the reflection plane: position and normal in world space
-            Vector3 pos = transform.position;
-            Vector3 normal = transform.up;
+                // find out the reflection plane: position and normal in world space
+                Vector3 pos = transform.position;
+                Vector3 normal = transform.up;
 
-            UpdateCameraModes(cam, reflectionCamera);
+                UpdateCameraModes(cam, reflectionCamera);
 
-            // Reflect camera around reflection plane
-            float d = -Vector3.Dot(normal, pos) - clipPlaneOffset;
-            Vector4 reflectionPlane = new Vector4(normal.x, normal.y, normal.z, d);
+                // Reflect camera around reflection plane
+                float d = -Vector3.Dot(normal, pos) - clipPlaneOffset;
+                Vector4 reflectionPlane = new Vector4(normal.x, normal.y, normal.z, d);
 
-            Matrix4x4 reflection = Matrix4x4.zero;
-            CalculateReflectionMatrix(ref reflection, reflectionPlane);
-            Vector3 oldpos = cam.transform.position;
-            Vector3 newpos = reflection.MultiplyPoint(oldpos);
-            reflectionCamera.worldToCameraMatrix = cam.worldToCameraMatrix * reflection;
+                Matrix4x4 reflection = Matrix4x4.zero;
+                CalculateReflectionMatrix(ref reflection, reflectionPlane);
+                Vector3 oldpos = cam.transform.position;
+                Vector3 newpos = reflection.MultiplyPoint(oldpos);
+                reflectionCamera.worldToCameraMatrix = cam.worldToCameraMatrix * reflection;
 
-            // Setup oblique projection matrix so that near plane is our reflection
-            // plane. This way we clip everything below/above it for free.
-            Vector4 clipPlane = CameraSpacePlane(reflectionCamera, pos, normal, 1.0f);
-            reflectionCamera.projectionMatrix = cam.CalculateObliqueMatrix(clipPlane);
+                // Setup oblique projection matrix so that near plane is our reflection
+                // plane. This way we clip everything below/above it for free.
+                Vector4 clipPlane = CameraSpacePlane(reflectionCamera, pos, normal, 1.0f);
+                reflectionCamera.projectionMatrix = cam.CalculateObliqueMatrix(clipPlane);
 
-            // Set custom culling matrix from the current camera
-            reflectionCamera.cullingMatrix = cam.projectionMatrix * cam.worldToCameraMatrix;
+                // Set custom culling matrix from the current camera
+                reflectionCamera.cullingMatrix = cam.projectionMatrix * cam.worldToCameraMatrix;
 
-            reflectionCamera.cullingMask = ~(1 << 4) & reflectLayers.value; // never render water layer
-            reflectionCamera.targetTexture = m_ReflectionTexture;
-            bool oldCulling = GL.invertCulling;
-            GL.invertCulling = !oldCulling;
-            reflectionCamera.transform.position = newpos;
-            Vector3 euler = cam.transform.eulerAngles;
-            reflectionCamera.transform.eulerAngles = new Vector3(-euler.x, euler.y, euler.z);
-            reflectionCamera.Render();
-            reflectionCamera.transform.position = oldpos;
-            GL.invertCulling = oldCulling;
-            GetComponent<Renderer>().sharedMaterial.SetTexture("_ReflectionTex", m_ReflectionTexture);
+                reflectionCamera.cullingMask = ~(1 << 4) & reflectLayers.value; // never render water layer
+                reflectionCamera.targetTexture = m_ReflectionTexture;
+                bool oldCulling = GL.invertCulling;
+                GL.invertCulling = !oldCulling;
+                reflectionCamera.transform.position = newpos;
+                Vector3 euler = cam.transform.eulerAngles;
+                reflectionCamera.transform.eulerAngles = new Vector3(-euler.x, euler.y, euler.z);
+                reflectionCamera.Render();
+                reflectionCamera.transform.position = oldpos;
+                GL.invertCulling = oldCulling;
+                GetComponent<Renderer>().sharedMaterial.SetTexture("_ReflectionTex", m_ReflectionTexture);
+            }
+
+            if(rt && m_VoronoiMaterial)
+            {
+                m_VoronoiMaterial.SetFloat("_WaveScale", waveScale);
+                m_VoronoiMaterial.SetFloat("_WaveHeight", waveHeight);
+                Graphics.Blit(rt, rt, m_VoronoiMaterial);
+            }
         }
 
         // Given position/normal of the plane, calculates plane in camera space.
@@ -200,6 +233,22 @@ namespace ToonShading
             dest.fieldOfView = src.fieldOfView;
             dest.aspect = src.aspect;
             dest.orthographicSize = src.orthographicSize;
+        }
+
+        public float GetBouyancy(Vector3 targetPosition)
+        {
+            Vector3 boundsCenter = GetComponent<Renderer>().bounds.center;
+            Vector3 boundsSize = GetComponent<Renderer>().bounds.size;
+            Vector2 boundsZero = new Vector2(boundsCenter.x, boundsCenter.y) - (new Vector2(boundsSize.x, boundsSize.y) / 2);
+            Vector2 positionInBounds = new Vector2((targetPosition.x - boundsZero.x) / boundsSize.x, (targetPosition.x - boundsZero.x) / boundsSize.x);
+            RenderTexture.active = rt;
+            int texSize = 512;
+            Texture2D tex = new Texture2D(texSize, texSize);
+            tex.ReadPixels(new Rect(0, 0, texSize, texSize), 0, 0);
+            Color pixelColor = tex.GetPixel((int)(texSize * positionInBounds.x), (int)(texSize * positionInBounds.y));
+            RenderTexture.active = null;
+            DestroyImmediate(tex);
+            return pixelColor.r;
         }
     }
 }
