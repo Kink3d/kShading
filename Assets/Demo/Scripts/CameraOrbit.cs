@@ -7,6 +7,8 @@ namespace ToonShading
     public class CameraOrbit : MonoBehaviour
     {
         public float orbitSpeed = 1f;
+        public bool constantRotation;
+        public float constantRotationSpeed = 0f;
 
         Vector2 mouseStartPos;
 
@@ -20,12 +22,20 @@ namespace ToonShading
 
         private void LateUpdate()
         {
-            if(Input.GetButton("Fire1"))
+            if(constantRotation)
             {
-                Vector3 mousePos = Input.mousePosition + new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0);
-                float rotation = ((mousePos.x - mouseStartPos.x) / Screen.width) * orbitSpeed;
-                Vector3 euler = new Vector3(transform.eulerAngles.x , transform.eulerAngles.y + rotation, transform.eulerAngles.z);
+                Vector3 euler = new Vector3(transform.eulerAngles.x, transform.eulerAngles.y + constantRotationSpeed, transform.eulerAngles.z);
                 transform.eulerAngles = euler;
+            }
+            else
+            {
+                if (Input.GetButton("Fire1"))
+                {
+                    Vector3 mousePos = Input.mousePosition + new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0);
+                    float rotation = ((mousePos.x - mouseStartPos.x) / Screen.width) * orbitSpeed;
+                    Vector3 euler = new Vector3(transform.eulerAngles.x, transform.eulerAngles.y + rotation, transform.eulerAngles.z);
+                    transform.eulerAngles = euler;
+                }
             }
         }
     }
