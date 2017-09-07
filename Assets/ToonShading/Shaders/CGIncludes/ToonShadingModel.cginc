@@ -6,6 +6,8 @@
 //-------------------------------------------------------------------------------------
 // Specular workflow
 
+// Specular Surface Sata
+// - The same as SurfaceOutputStandard
 struct SurfaceOutputStandardToon
 {
 	fixed3 Albedo;      // diffuse color
@@ -17,6 +19,8 @@ struct SurfaceOutputStandardToon
 	fixed Alpha;        // alpha for transparencies
 };
 
+// Forward Specular Lighting Model
+// - The same as LightingStandard except calls ToonBRDF expicitly
 inline half4 LightingStandardToon(SurfaceOutputStandardToon s, half3 viewDir, UnityGI gi)
 {
 	s.Normal = normalize(s.Normal);
@@ -30,18 +34,20 @@ inline half4 LightingStandardToon(SurfaceOutputStandardToon s, half3 viewDir, Un
 	half outputAlpha;
 	s.Albedo = PreMultiplyAlpha(s.Albedo, s.Alpha, oneMinusReflectivity, /*out*/ outputAlpha);
 
-	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);
+	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect); // Call ToonBRDF expicitly
 	c.a = outputAlpha;
 	return c;
 }
 
+// Deferred Specular Lighting Model
+// - The same as LightingStandar_Deferred except calls ToonBRDF expicitly
 inline half4 LightingStandardToon_Deferred(SurfaceOutputStandardToon s, half3 viewDir, UnityGI gi, out half4 outGBuffer0, out half4 outGBuffer1, out half4 outGBuffer2)
 {
 	// energy conservation
 	half oneMinusReflectivity;
 	s.Albedo = EnergyConservationBetweenDiffuseAndSpecular(s.Albedo, s.Specular, /*out*/ oneMinusReflectivity);
 
-	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);
+	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect); // Call ToonBRDF expicitly
 
 	UnityStandardData data;
 	data.diffuseColor = s.Albedo;
@@ -56,6 +62,8 @@ inline half4 LightingStandardToon_Deferred(SurfaceOutputStandardToon s, half3 vi
 	return emission;
 }
 
+// GI Model
+// - The same as LightingStandardToon_GI
 inline void LightingStandardToon_GI(
 	SurfaceOutputStandardToon s,
 	UnityGIInput data,
@@ -72,6 +80,8 @@ inline void LightingStandardToon_GI(
 //-------------------------------------------------------------------------------------
 // Water workflow
 
+// Specular Surface Sata
+// - The same as SurfaceOutputStandard
 struct SurfaceOutputStandardToonWater
 {
 	fixed3 Albedo;      // diffuse color
@@ -81,12 +91,13 @@ struct SurfaceOutputStandardToonWater
 	half Smoothness;    // 0=rough, 1=smooth
 	half Occlusion;     // occlusion (default 1)
 	fixed Alpha;        // alpha for transparencies
-	fixed2 ScreenUV;
 };
 
-float4 screenUV;
-sampler2D _ReflectionTex;
+float4 screenUV; // Screen UVs for various passes
+sampler2D _ReflectionTex; // Reflection texture set from ToonWater.cs
 
+// Forward Specular Lighting Model
+// - The same as LightingStandard except calls ToonBRDF expicitly
 inline half4 LightingStandardToonWater(SurfaceOutputStandardToonWater s, half3 viewDir, UnityGI gi)
 {
 	s.Normal = normalize(s.Normal);
@@ -100,18 +111,20 @@ inline half4 LightingStandardToonWater(SurfaceOutputStandardToonWater s, half3 v
 	half outputAlpha;
 	s.Albedo = PreMultiplyAlpha(s.Albedo, s.Alpha, oneMinusReflectivity, /*out*/ outputAlpha);
 
-	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);
+	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);  // Call ToonBRDF expicitly
 	c.a = outputAlpha;
 	return c;
 }
 
+// Deferred Specular Lighting Model
+// - The same as LightingStandar_Deferred except calls ToonBRDF expicitly
 inline half4 LightingStandardToonWater_Deferred(SurfaceOutputStandardToonWater s, half3 viewDir, UnityGI gi, out half4 outGBuffer0, out half4 outGBuffer1, out half4 outGBuffer2)
 {
 	// energy conservation
 	half oneMinusReflectivity;
 	s.Albedo = EnergyConservationBetweenDiffuseAndSpecular(s.Albedo, s.Specular, /*out*/ oneMinusReflectivity);
 
-	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);
+	half4 c = ToonBRDF(s.Albedo, s.Specular, oneMinusReflectivity, s.Smoothness, s.Normal, viewDir, gi.light, gi.indirect);  // Call ToonBRDF expicitly
 
 	UnityStandardData data;
 	data.diffuseColor = s.Albedo;
@@ -126,19 +139,25 @@ inline half4 LightingStandardToonWater_Deferred(SurfaceOutputStandardToonWater s
 	return emission;
 }
 
-inline half3 ToonGI_IndirectSpecular(UnityGIInput data, half occlusion, Unity_GlossyEnvironmentData glossIn)
+// Modified GI Indirect Specular
+// - Sample planar reflection instead of probes
+inline half3 ToonWaterGI_IndirectSpecular(UnityGIInput data, half occlusion, Unity_GlossyEnvironmentData glossIn)
 {
 	half3 specular = tex2Dproj(_ReflectionTex, UNITY_PROJ_COORD(screenUV)); // Sample planar reflection
 	return specular * occlusion;
 }
 
-inline UnityGI ToonGlobalIllumination(UnityGIInput data, half occlusion, half3 normalWorld, Unity_GlossyEnvironmentData glossIn)
+// GI Function
+// - The same as GlobalIllumination except calls a modified GI_Indirect function
+inline UnityGI ToonWaterGlobalIllumination(UnityGIInput data, half occlusion, half3 normalWorld, Unity_GlossyEnvironmentData glossIn)
 {
 	UnityGI o_gi = UnityGI_Base(data, occlusion, normalWorld);
-	o_gi.indirect.specular = ToonGI_IndirectSpecular(data, occlusion, glossIn);
+	o_gi.indirect.specular = ToonWaterGI_IndirectSpecular(data, occlusion, glossIn); // Call a modified GI_Indirect function
 	return o_gi;
 }
 
+// GI Model
+// - The same as LightingStandardToon_GI except calls a modified GI function
 inline void LightingStandardToonWater_GI(
 	SurfaceOutputStandardToonWater s,
 	UnityGIInput data,
@@ -148,7 +167,7 @@ inline void LightingStandardToonWater_GI(
 	gi = UnityGlobalIllumination(data, s.Occlusion, s.Normal);
 #else
 	Unity_GlossyEnvironmentData g = UnityGlossyEnvironmentSetup(s.Smoothness, data.worldViewDir, s.Normal, s.Specular);
-	gi = ToonGlobalIllumination(data, s.Occlusion, s.Normal, g);
+	gi = ToonWaterGlobalIllumination(data, s.Occlusion, s.Normal, g); // Call a modified GI function
 #endif
 }
 

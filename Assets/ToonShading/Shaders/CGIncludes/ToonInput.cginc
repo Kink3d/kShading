@@ -24,9 +24,9 @@ half        _Glossiness;
 half4       _EmissionColor;
 sampler2D   _EmissionMap;
 
-half _SmoothnessTextureChannel;
-half _SpecularHighlights;
-half _GlossyReflections;
+half		_SmoothnessTextureChannel;
+half		_SpecularHighlights;
+half		_GlossyReflections;
 
 // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
 // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.

@@ -1,59 +1,53 @@
-﻿// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
-
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-Shader "ToonWater" 
+﻿Shader "ToonWater" 
 {
 	Properties 
 	{
-		_Mode("", float) = 0
-		_Cutoff("", range(0,1)) = 0.5
+		_Mode ("", float) = 0 // Blend mode
+		_Cutoff ("", range(0,1)) = 0.5 // Alpha cutoff
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
 		_SpecGlossMap("Specular Map (RGB)", 2D) = "white" {}
 		_SpecColor("Specular Color", Color) = (0,0,0,0)
 		_Glossiness("Smoothness", Range(0,1)) = 0.5
-		_Transmission("Transmission", Range(0, 1)) = 0.5
+		_Transmission("Transmission", Range(0,1)) = 0
 		_BumpMap("Normal Map", 2D) = "bump" {}
 		_BumpScale("Normal Scale", float) = 1
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
-		[Toggle]_Fresnel("", float) = 1
+		[Toggle]_Fresnel ("", float) = 1 // Fresnel toggle
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2
 		_FresnelPower ("Fresnel Power", Range(0, 1)) = 0.5
 		_FresnelDiffCont("Diffuse Contribution", Range(0, 1)) = 0.5
-
-		_SmoothnessTextureChannel("", float) = 0
-		[Toggle]_SpecularHighlights("", float) = 1
-		[Toggle]_GlossyReflections("", float) = 1
-
 		_WaveHeight("Height", Range(0, 1)) = 0
 		_WaveScale("Scale", Range(0, 1)) = 0.5
 		_WaveCrest("Crest", Range(0, 1)) = 0.5
-		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {}
-		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {}
-		
+
+		_SmoothnessTextureChannel("", float) = 0 // Smoothness map channel
+		[Toggle]_SpecularHighlights("", float) = 1 // Specular highlight toggle
+		[Toggle]_GlossyReflections("", float) = 1 // Glossy reflection toggle
+		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {} // Planar reflection texture. Set from ToonWater.cs
+		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {} // Noise texture. Set from ToonWater.cs
 	}
 
 	SubShader 
 	{
-		
-
 		Tags { "Queue"="Transparent" "RenderType"="Transparent" }
 		LOD 200
 		ZWrite Off
 
+		// Enable grab pass
 		GrabPass
 		{
 			"_GrabTex"
 		}
 		
 		CGPROGRAM
+		// Include BRDF and shading models
 		#include "CGIncludes/ToonBRDF.cginc"
 		#include "CGIncludes/ToonShadingModel.cginc"
 		#include "CGIncludes/ToonInput.cginc"
-		//#define UNITY_BRDF_PBS ToonBRDF
+		// Define lighting model and vertex function
 		#pragma surface surf StandardToonWater vertex:vert fullforwardshadows
 		#pragma target 3.0
 
@@ -61,7 +55,8 @@ Shader "ToonWater"
 		{
 			return frac(sin(float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3))))*43758.5453);
 		}
-
+		
+		// Wave properties
 		float _WaveHeight;
 		float _WaveScale;
 		float _WaveCrest;
@@ -185,6 +180,6 @@ Shader "ToonWater"
 		}
 		ENDCG
 	}
-	FallBack "Diffuse"
-	CustomEditor "ToonShading.ToonGUI"
+	FallBack "Diffuse" // Define fallback
+	CustomEditor "ToonShading.ToonGUI" // Define custom ShaderGUI
 }

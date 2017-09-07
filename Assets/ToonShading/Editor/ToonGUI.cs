@@ -6,12 +6,6 @@ namespace ToonShading
 {
     public class ToonGUI : ShaderGUI
     {
-        private enum WorkflowMode
-        {
-            Default,
-            Water
-        }
-
         public enum BlendMode
         {
             Opaque,
@@ -41,11 +35,6 @@ namespace ToonShading
             public static GUIContent normalMapText = new GUIContent("Normal Map", "Normal Map");
             //public static GUIContent occlusionText = new GUIContent("Occlusion", "Occlusion (G)");
             public static GUIContent emissionText = new GUIContent("Color", "Emission (RGB)");
-
-            // Water Properties
-            public static GUIContent waveHeightText = new GUIContent("Wave Height", "Wave Height");
-            public static GUIContent waveScaleText = new GUIContent("Wave Scale", "Wave Scale");
-            public static GUIContent waveCrestText = new GUIContent("Wave Crest", "Wave Crest");
 
             // Rendering Options
             public static GUIContent highlightsText = new GUIContent("Specular Highlights", "Specular Highlights");
@@ -86,11 +75,6 @@ namespace ToonShading
         MaterialProperty emissionColorForRendering = null;
         MaterialProperty emissionMap = null;
 
-        // Water Properties
-        MaterialProperty waveHeight = null;
-        MaterialProperty waveScale = null;
-        MaterialProperty waveCrest = null;
-
         // Rendering Options
         MaterialProperty fresnel = null;
         MaterialProperty fresnelTint = null;
@@ -102,7 +86,6 @@ namespace ToonShading
 
         // Misc
         MaterialEditor m_MaterialEditor;
-        WorkflowMode m_WorkflowMode = WorkflowMode.Default;
         ColorPickerHDRConfig m_ColorPickerHDRConfig = new ColorPickerHDRConfig(0f, 99f, 1 / 99f, 3f);
 
         bool m_FirstTimeApply = true;
@@ -126,11 +109,6 @@ namespace ToonShading
             //occlusionMap = FindProperty("_OcclusionMap", props);
             emissionColorForRendering = FindProperty("_EmissionColor", props);
             emissionMap = FindProperty("_EmissionMap", props);
-
-            // Water Properties
-            waveHeight = FindProperty("_WaveHeight", props, false);
-            waveScale = FindProperty("_WaveScale", props, false);
-            waveCrest = FindProperty("_WaveCrest", props, false);
 
             // Rendering Options
             fresnel = FindProperty("_Fresnel", props);
@@ -156,7 +134,6 @@ namespace ToonShading
                 MaterialChanged(material);
                 m_FirstTimeApply = false;
             }
-            DetermineWorkflow(props);
             ShaderPropertiesGUI(material);
         }
 
@@ -180,11 +157,7 @@ namespace ToonShading
                 m_MaterialEditor.TextureScaleOffsetProperty(albedoMap);
                 if (EditorGUI.EndChangeCheck())
                     emissionMap.textureScaleAndOffset = albedoMap.textureScaleAndOffset; // Apply the main texture scale and offset to the emission texture as well, for Enlighten's sake
-
-                EditorGUILayout.Space();
-
-                // Water properties
-                DoWaterArea(material);
+                
                 EditorGUILayout.Space();
 
                 // Rendering properties
@@ -208,14 +181,6 @@ namespace ToonShading
             m_MaterialEditor.RenderQueueField();
             m_MaterialEditor.EnableInstancingField();
             m_MaterialEditor.DoubleSidedGIField();
-        }
-
-        internal void DetermineWorkflow(MaterialProperty[] props)
-        {
-            if (FindProperty("_WaveHeight", props, false) != null)
-                m_WorkflowMode = WorkflowMode.Water;
-            else
-                m_WorkflowMode = WorkflowMode.Default;
         }
 
         public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
@@ -263,12 +228,12 @@ namespace ToonShading
             bool hasGlossMap = specularMap.textureValue != null;
             m_MaterialEditor.TexturePropertySingleLine(Styles.specularMapText, specularMap, hasGlossMap ? null : specularColor);
 
-            bool showSmoothnessScale = hasGlossMap;
+            //bool showSmoothnessScale = hasGlossMap;
             if (smoothnessMapChannel != null)
             {
                 int smoothnessChannel = (int)smoothnessMapChannel.floatValue;
-                if (smoothnessChannel == (int)SmoothnessMapChannel.AlbedoAlpha)
-                    showSmoothnessScale = true;
+                //if (smoothnessChannel == (int)SmoothnessMapChannel.AlbedoAlpha)
+                    //showSmoothnessScale = true;
             }
 
             int indentation = 2; // align with labels of texture properties
@@ -312,17 +277,6 @@ namespace ToonShading
 
                 // change the GI flag and fix it up with emissive as black if necessary
                 m_MaterialEditor.LightmapEmissionFlagsProperty(MaterialEditor.kMiniTextureFieldLabelIndentLevel, true);
-            }
-        }
-
-        void DoWaterArea(Material material)
-        {
-            if(m_WorkflowMode == WorkflowMode.Water)
-            {
-                GUILayout.Label(Styles.waterPropertiesText, EditorStyles.boldLabel);
-                m_MaterialEditor.ShaderProperty(waveHeight, Styles.waveHeightText);
-                m_MaterialEditor.ShaderProperty(waveScale, Styles.waveScaleText);
-                m_MaterialEditor.ShaderProperty(waveCrest, Styles.waveCrestText);
             }
         }
 

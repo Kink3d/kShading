@@ -7,22 +7,26 @@ namespace ToonShading
     [ExecuteInEditMode]
     public class ToonWater : MonoBehaviour
     {
+        // Waves
+        [Range(0f, 1f)] public float waveHeight;
+        [Range(0f, 1f)] public float waveScale;
+        [Range(0f, 1f)] public float waveCrest;
+
+        // Reflection
         public bool enableReflection = true;
         public LayerMask reflectLayers = -1;
         public int textureSize = 256;
         public float clipPlaneOffset = 0.07f;
-
-        private RenderTexture rt;
-        private int voronoiScale = 512;
-        [Range(0f, 1f)] public float waveHeight;
-        [Range(0f, 1f)] public float waveScale;
-
         private Dictionary<Camera, Camera> m_ReflectionCameras = new Dictionary<Camera, Camera>(); // Camera -> Camera table
         private RenderTexture m_ReflectionTexture;
         private int m_OldReflectionTextureSize;
+
         Texture2D m_NoiseTexture;
         Matrix4x4 m_Matrix;
 
+        // Voronoi
+        private RenderTexture rt;
+        private int voronoiScale = 512;
         private Material m_VoronoiMaterial;
 
         private void OnEnable()
@@ -136,6 +140,10 @@ namespace ToonShading
                 m_VoronoiMaterial.SetFloat("_WaveHeight", waveHeight);
                 Graphics.Blit(rt, rt, m_VoronoiMaterial);
             }
+
+            GetComponent<Renderer>().sharedMaterial.SetFloat("_WaveHeight", waveHeight);
+            GetComponent<Renderer>().sharedMaterial.SetFloat("_WaveScale", waveScale);
+            GetComponent<Renderer>().sharedMaterial.SetFloat("_WaveCrest", waveCrest);
         }
 
         // Given position/normal of the plane, calculates plane in camera space.

@@ -1,7 +1,9 @@
-﻿Shader "ToonStandard" {
-	Properties {
-		_Mode ("", float) = 0
-		_Cutoff ("", range(0,1)) = 0.5
+﻿Shader "ToonStandard" 
+{
+	Properties 
+	{
+		_Mode ("", float) = 0 // Blend mode
+		_Cutoff ("", range(0,1)) = 0.5 // Alpha cutoff
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
 		_SpecGlossMap("Specular Map (RGB)", 2D) = "white" {}
@@ -12,25 +14,28 @@
 		_BumpScale("Normal Scale", float) = 1
 		_EmissionMap("Emission (RGB)", 2D) = "white" {}
 		[HDR]_EmissionColor("Emission Color (RGB)", Color) = (0,0,0,0)
-		[Toggle]_Fresnel ("", float) = 1
+		[Toggle]_Fresnel ("", float) = 1 // Fresnel toggle
 		_FresnelTint ("Fresnel Tint", Color) = (1,1,1,1)
 		_FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.2
 		_FresnelPower ("Fresnel Power", Range(0, 1)) = 0.5
 		_FresnelDiffCont("Diffuse Contribution", Range(0, 1)) = 0.5
 		
-		_SmoothnessTextureChannel("", float) = 0
-		[Toggle]_SpecularHighlights("", float) = 1
-		[Toggle]_GlossyReflections("", float) = 1
+		_SmoothnessTextureChannel("", float) = 0 // Smoothness map channel
+		[Toggle]_SpecularHighlights("", float) = 1 // Specular highlight toggle
+		[Toggle]_GlossyReflections("", float) = 1 // Glossy reflection toggle
 	}
-	SubShader {
+
+	SubShader 
+	{
 		Tags { "RenderType"="Opaque" }
 		LOD 200
 		
 		CGPROGRAM
+		// Include BRDF and shading models
 		#include "CGIncludes/ToonBRDF.cginc"
 		#include "CGIncludes/ToonShadingModel.cginc"
 		#include "CGIncludes/ToonInput.cginc"
-		//#define UNITY_BRDF_PBS ToonBRDF
+		// Define lighting model
 		#pragma surface surf StandardToon fullforwardshadows
 		#pragma target 3.0
 
@@ -39,6 +44,8 @@
 			float2 uv_MainTex;
 		};
 
+		// Surface function
+		// - Same as usual PBR lighting model
 		void surf (Input IN, inout SurfaceOutputStandardToon o) 
 		{
 			fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
@@ -51,6 +58,6 @@
 		}
 		ENDCG
 	}
-	FallBack "Diffuse"
-	CustomEditor "ToonShading.ToonGUI"
+	FallBack "Diffuse" // Define fallback
+	CustomEditor "ToonShading.ToonGUI" // Define custom ShaderGUI
 }
