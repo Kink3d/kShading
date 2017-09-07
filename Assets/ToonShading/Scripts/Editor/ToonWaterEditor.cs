@@ -12,17 +12,26 @@ namespace ToonShading
         public override void OnInspectorGUI()
         {
             ToonWater myTarget = (ToonWater)target; // Get target
+
+            EditorGUILayout.LabelField("Mode", EditorStyles.boldLabel);
             myTarget.voronoiSampleType = (ToonWater.VoronoiSampleType)EditorGUILayout.EnumPopup("Voronoi Sample Type", myTarget.voronoiSampleType); // Draw Orbit Type enum
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Waves", EditorStyles.boldLabel);
             myTarget.waveHeight = EditorGUILayout.Slider("Wave Height", myTarget.waveHeight, 0, 1);
             myTarget.waveScale = EditorGUILayout.Slider("Wave Scale", myTarget.waveScale, 0, 1);
             myTarget.waveCrest = EditorGUILayout.Slider("Wave Crest", myTarget.waveCrest, 0, 1);
 
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Reflection", EditorStyles.boldLabel);
             myTarget.enableReflection = EditorGUILayout.Toggle("Enable Reflection", myTarget.enableReflection);
             if (myTarget.enableReflection)
             {
+                EditorGUI.indentLevel++;
                 myTarget.reflectLayers = LayerMaskField("Reflect Layers", myTarget.reflectLayers);
                 myTarget.textureSize = EditorGUILayout.IntSlider("Texture Size", myTarget.textureSize, 16, 1024);
                 myTarget.clipPlaneOffset = EditorGUILayout.Slider("Clip Plane Offset", myTarget.clipPlaneOffset, 0f, 1f);
+                EditorGUI.indentLevel--;
             }
         }
 
