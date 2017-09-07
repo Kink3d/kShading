@@ -26,9 +26,9 @@
 		[Toggle]_SeparateVoronoi("", float) = 0 // Separate voronoi toggle
 		_SmoothnessTextureChannel("", float) = 0 // Smoothness map channel
 		[Toggle]_SpecularHighlights("", float) = 1 // Specular highlight toggle
-		[Toggle]_GlossyReflections("", float) = 1 // Glossy reflection toggle
+		[Toggle]_PlanarReflection("", float) = 1 // Planar reflection toggle
 		[HideInInspector] _VoronoiTex("Internal Voronoi", 2D) = "" {} // Voronoi noise texture. Set from ToonWater.cs
-		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {} // Planar reflection texture. Set from ToonWater.cs
+		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "black" {} // Planar reflection texture. Set from ToonWater.cs
 		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {} // Noise texture. Set from ToonWater.cs
 	}
 

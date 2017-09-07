@@ -143,7 +143,7 @@ namespace ToonShading
                 GL.invertCulling = oldCulling; // Reset culling
                 if (m_ReflectionTexture)
                     m_Renderer.sharedMaterial.SetTexture("_ReflectionTex", m_ReflectionTexture); // Set reflection texture
-                m_Renderer.sharedMaterial.SetFloat("_GlossyReflections", 1); // Enable reflections
+                m_Renderer.sharedMaterial.SetFloat("_PlanarReflections", 1); // Enable reflections
             }
             else
             {
@@ -151,7 +151,7 @@ namespace ToonShading
                 {
                     DestroyImmediate(m_ReflectionTexture); // Destroy it
                 }
-                m_Renderer.sharedMaterial.SetFloat("_GlossyReflections", 0); // Disable reflections
+                m_Renderer.sharedMaterial.SetFloat("_PlanarReflections", 0); // Disable reflections
             }
 
             // Voronoi noise

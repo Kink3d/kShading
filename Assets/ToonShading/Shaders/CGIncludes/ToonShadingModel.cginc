@@ -94,7 +94,7 @@ struct SurfaceOutputStandardToonWater
 };
 
 float4 screenUV; // Screen UVs for various passes
-float _GlossyReflections; // Enable planar reflection?
+float _PlanarReflections; // Enable planar reflection?
 sampler2D _ReflectionTex; // Reflection texture set from ToonWater.cs
 
 // Forward Specular Lighting Model
@@ -145,10 +145,10 @@ inline half4 LightingStandardToonWater_Deferred(SurfaceOutputStandardToonWater s
 inline half3 ToonWaterGI_IndirectSpecular(UnityGIInput data, half occlusion, Unity_GlossyEnvironmentData glossIn)
 {
 	half3 specular; // Create output
-	if (_GlossyReflections == 1) // If planar reflections enabled
+	if (_PlanarReflections == 1) // If planar reflections enabled
 		specular = tex2Dproj(_ReflectionTex, UNITY_PROJ_COORD(screenUV)); // Sample planar reflection
 	else
-		specular = float3(0); // Return blank
+		specular = float3(0, 0, 0); // Return blank
 	return specular * occlusion; // Multiply occlusion
 }
 
