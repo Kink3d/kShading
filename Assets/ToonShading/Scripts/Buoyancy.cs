@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ToonShading
 {
-    public class Bouyancy : MonoBehaviour
+    public class Buoyancy : MonoBehaviour
     {
         ToonWater toonWater; // Reference to ToonWater controller
         private Vector3 startPosition; // Initial object position

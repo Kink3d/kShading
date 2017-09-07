@@ -23,9 +23,11 @@
 		_WaveScale("Scale", Range(0, 1)) = 0.5
 		_WaveCrest("Crest", Range(0, 1)) = 0.5
 
+		[Toggle]_SeparateVoronoi("", float) = 0 // Separate voronoi toggle
 		_SmoothnessTextureChannel("", float) = 0 // Smoothness map channel
 		[Toggle]_SpecularHighlights("", float) = 1 // Specular highlight toggle
 		[Toggle]_GlossyReflections("", float) = 1 // Glossy reflection toggle
+		[HideInInspector] _VoronoiTex("Internal Voronoi", 2D) = "" {} // Voronoi noise texture. Set from ToonWater.cs
 		[HideInInspector] _ReflectionTex("Internal Reflection", 2D) = "" {} // Planar reflection texture. Set from ToonWater.cs
 		[HideInInspector] _NoiseTex("Noise Texture", 2D) = "" {} // Noise texture. Set from ToonWater.cs
 	}
@@ -43,54 +45,27 @@
 		}
 		
 		CGPROGRAM
-		// Include BRDF and shading models
-		#include "CGIncludes/ToonBRDF.cginc"
-		#include "CGIncludes/ToonShadingModel.cginc"
-		#include "CGIncludes/ToonInput.cginc"
-		// Define lighting model and vertex function
-		#pragma surface surf StandardToonWater vertex:vert fullforwardshadows
-		#pragma target 3.0
 
-		float2 random2(float2 p)
-		{
-			return frac(sin(float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3))))*43758.5453);
-		}
-		
-		// Wave properties
+		// Wave properties required for voronoi functions
 		float _WaveHeight;
 		float _WaveScale;
 		float _WaveCrest;
 
-		float Voronoi(float2 uv)
-		{
-			float2 st = uv;
+		// Include input, BRDF, shading models and voronoi
+		#include "CGIncludes/ToonBRDF.cginc"
+		#include "CGIncludes/ToonShadingModel.cginc"
+		#include "CGIncludes/ToonInput.cginc"
+		#include "CGIncludes/Voronoi.cginc"
+		// Define lighting model and vertex function
+		#pragma surface surf StandardToonWater vertex:vert fullforwardshadows
+		#pragma target 3.0
 
-			// Scale 
-			st *= 10 - _WaveScale * 10;
-
-			// Tile the space
-			float2 i_st = floor(st);
-			float2 f_st = frac(st);
-
-			float m_dist = 10.;	// minimun distance
-			float2 m_point;     // minimum point
-
-			for (int j = -1; j <= 1; j++) {
-				for (int i = -1; i <= 1; i++) {
-					float2 neighbor = float2(float(i), float(j));
-					float2 p = random2(i_st + neighbor);
-					p = 0.5 + 0.5*sin(_Time.y + 6.2831*p);
-					float2 diff = neighbor + p - f_st;
-					float dist = length(diff);
-
-					if (dist < m_dist) {
-						m_dist = dist;
-						m_point = p;
-					}
-				}
-			}
-			return m_dist;
-		}
+		// Texture samples
+		float _SeparateVoronoi;
+		sampler2D _VoronoiTex;
+		sampler2D _GrabTex;
+		sampler2D _NoiseTex;
+		sampler2D _CameraDepthTexture;
 
 		struct Input 
 		{
@@ -99,79 +74,81 @@
 			float4 screenUV;
 		};
 
+		// Vertex shader
 		void vert(inout appdata_full v, out Input o) 
 		{
-			float voronoi = Voronoi(v.texcoord1);
-			v.vertex.y += voronoi * _WaveHeight; // Move vertex y for voronoi
-			o.uv_MainTex = v.texcoord;
-			o.position = v.vertex;
-			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex));
+			float voronoi = 0; // Define voronoi
+			if(_SeparateVoronoi == 1) // If separate voronoi enabled
+				voronoi = Voronoi(v.texcoord1); // Calculate voronoi for this vertex
+			else
+				voronoi = tex2Dlod(_VoronoiTex, v.texcoord).r; // Sample voronoi texture at this vertex
+			v.vertex.y += voronoi * _WaveHeight; // Move vertex for waves
+			o.uv_MainTex = v.texcoord; // Output UV
+			o.position = v.vertex; // Output vertex position
+			o.screenUV = ComputeNonStereoScreenPos(UnityObjectToClipPos(v.vertex)); // Compute screen position
 		}
-
-		sampler2D _GrabTex;
-		sampler2D _NoiseTex;
-		sampler2D _CameraDepthTexture;
 
 		// Refract projection UVs
+		// - Use to refract water transmission/visibility and crests
 		float2 Refraction(float2 uv)
 		{
-			uv.x += 0.1 * sin((1 - uv.xy) * .25 * _WaveHeight * (_SinTime.w) * sin(uv.y * 50));
-			return uv;
+			uv.x += 0.1 * sin((1 - uv.xy) * .25 * _WaveHeight * (_SinTime.w) * sin(uv.y * 50)); // Calculate sine refraction
+			return uv; // Return
 		}
 
-		float4x4 _InverseView; // Cameras world matrix (from C#)
+		float4x4 _InverseView; // Cameras world matrix. Set from ToonWater.cs
 
 		// Convert depth map to world space
 		float3 DepthToWorld(float2 uv, float vHeight)
 		{
+			// Get projections
 			const float2 p11_22 = float2(unity_CameraProjection._11, unity_CameraProjection._22);
 			const float2 p13_31 = float2(unity_CameraProjection._13, unity_CameraProjection._23);
-			const float isOrtho = unity_OrthoParams.w;
-			const float near = _ProjectionParams.y;
-			const float far = _ProjectionParams.z;
+			const float isOrtho = unity_OrthoParams.w; // Is orthographic
+			const float near = _ProjectionParams.y; // Near clip
+			const float far = _ProjectionParams.z; // Far clip
 
-			float d = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-			#if defined(UNITY_REVERSED_Z)
-			d = 1 - d;
+			float d = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv); // Sample depth
+			#if defined(UNITY_REVERSED_Z) // If reverse Z
+				d = 1 - d; // Reverse
 			#endif
-			float zOrtho = lerp(near, far, d);
-			float zPers = near * far / lerp(far, near, d);
-			float vz = lerp(zPers, zOrtho, isOrtho);
+			float zOrtho = lerp(near, far, d); // Orthographics projection
+			float zPers = near * far / lerp(far, near, d); // Perspective projection
+			float vz = lerp(zPers, zOrtho, isOrtho); // Select projection
 
-			float3 vpos = float3((uv * 2 - 1 - p13_31) / p11_22 * lerp(vz, 1, isOrtho), -vz);
-			float4 wpos = mul(_InverseView, float4(vpos, 1));
+			float3 vpos = float3((uv * 2 - 1 - p13_31) / p11_22 * lerp(vz, 1, isOrtho), -vz); // Calculate vpos
+			float4 wpos = mul(_InverseView, float4(vpos, 1)); // Multiply by camera matrix for world space
+			wpos.y += vHeight; // Add vertex height for waves 
 
-			wpos = mul(unity_WorldToObject, wpos); // Back to local object space, can go straight to this?
-			wpos.y += vHeight;
-
-			return wpos;
+			return wpos; // Return
 		}
 
 		void surf (Input IN, inout SurfaceOutputStandardToonWater o) 
 		{
 			// Voronoi noise
-			float voronoi = Voronoi(IN.uv_MainTex);
-			// Set screenUV for specular calculation from Planar in BRDF
-			screenUV = IN.screenUV;
-			// Refract UVs
-			float2 refractedWSUV = Refraction(screenUV.xy / screenUV.w);
-			// Calculate world position from Depth texture (with refraction)
-			float3 refractedWorldPos = DepthToWorld(refractedWSUV, IN.position.y);
-			// Simple noise
-			float noise = tex2D(_NoiseTex, IN.uv_MainTex * 1.5 + _Time.x).r;
-			// Crest
-			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0); // Wave peaks
-			crest += max((refractedWorldPos.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Intersections
-			crest = min(step(0.9, crest), 1) * _WaveCrest; // Step
-			// Depth visibility
-			float visibility = max(pow(_Transmission, max(-refractedWorldPos.y, 0)) - (1 - _Transmission), 0);
-			// Refraction
-			float3 refraction = tex2D(_GrabTex, refractedWSUV);
-			float3 underwater = lerp(_Color, (refraction * _Color), visibility);
+			float voronoi = 0; // Define voronoi
+			if (_SeparateVoronoi == 1) // If separate voronoi enabled
+				voronoi = Voronoi(IN.uv_MainTex); // Calculate voronoi for this fragment
+			else 
+				voronoi = tex2D(_VoronoiTex, IN.uv_MainTex); // Sample voronoi texture at this fragment
+
+			screenUV = IN.screenUV; // Set screen-space UVs for specular calculation from Planar in BRDF
+			float2 refractedWSUV = Refraction(screenUV.xy / screenUV.w); // Refract screen-space UVs
+			float3 refractedWorldPos = DepthToWorld(refractedWSUV, IN.position.y); // Calculate world position from Depth texture (with refracted UVs)			
+
+			// Calculate crest
+			float noise = tex2D(_NoiseTex, IN.uv_MainTex * 1.5 + _Time.x).r; // Sample simple noise
+			float crest = max(pow(voronoi * 1.5, 10) * (_WaveHeight * 10) - noise * 20, 0); // Calculate wave peaks
+			crest += max((refractedWorldPos.y * 1.5) * (_WaveHeight * 1000) - noise * (100 * _WaveHeight), 0); // Calculate intersections
+			crest = min(step(0.9, crest), 1) * _WaveCrest; // Step the crest and blend
+
+			// Calculate visibility
+			float visibility = max(pow(_Transmission, max(-refractedWorldPos.y, 0)) - (1 - _Transmission), 0); // Calculate depth visibility
+			float3 grabTex = tex2D(_GrabTex, refractedWSUV); // Sample grab texture
+			float3 finalWater = lerp(_Color, (grabTex * _Color), visibility); // Blend between color and colored grab texture based on visibility
 
 			// Main
-			//fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
-			o.Albedo = underwater + crest;
+			o.Albedo = finalWater + crest; // Albedo is water color plus crests
 			o.Specular = tex2D(_SpecGlossMap, IN.uv_MainTex).rgb * _SpecColor;
 			o.Smoothness = tex2D(_SpecGlossMap, IN.uv_MainTex).a * _Glossiness;
 			o.Normal = UnpackScaleNormal(tex2D(_BumpMap, IN.uv_MainTex), _BumpScale);
