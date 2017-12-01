@@ -54,7 +54,8 @@ half3 ToonBRDF_Diffuse(half3 diffColor, half3 lightDir, half3 normal, float3 lig
 {
 	lightDir = normalize(lightDir); // Normalize light direction
 	float3 diffuse = saturate((dot(normal, lightDir) + _Transmission) / ((1 + _Transmission) * (1 + _Transmission))); // Wrap diffuse based on transmission
-	diffuse = min(step(0.01, diffuse) + (_Transmission), 1); // Step the diffuse term and rebalance zero area to simulate transmission
+	diffuse = min((round(diffuse * 2) / 2) + _Transmission, 1);
+	//diffuse = min(step(0.01, diffuse) + (_Transmission), 1); // Step the diffuse term and rebalance zero area to simulate transmission
 	return diffuse * lightColor; // Return diffuse multiplied by light color
 }
 

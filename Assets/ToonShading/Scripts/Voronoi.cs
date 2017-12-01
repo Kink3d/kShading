@@ -9,14 +9,14 @@ namespace ToonShading
         // HLSL Frac
         static float Frac(float value)
         {
-            return value - (int)value;
+            return value - Mathf.Floor(value);
         }
 
         // Get random Vector2
         static Vector2 random2(Vector2 p)
         {
-            Vector2 x = new Vector2(Vector2.Dot(p, new Vector2(127.1f, 311.7f)), Vector2.Dot(p, new Vector2(269.5f, 183.3f))) *43758.5453f;
-            return new Vector2(Frac(Mathf.Sin(x.x)), Frac(Mathf.Sin(x.y)));
+            Vector2 x = new Vector2(Vector2.Dot(p, new Vector2(127.1f, 311.7f)), Vector2.Dot(p, new Vector2(269.5f, 183.3f)));
+            return new Vector2(Frac(Mathf.Sin(x.x) * 43758.5453f), Frac(Mathf.Sin(x.y) * 43758.5453f));
         }
 
         // Calculate voronoi noise
@@ -26,8 +26,8 @@ namespace ToonShading
             st *= 10 - scale * 10; // Scale 
 
             // Tile the space
-            Vector2 i_st = new Vector2(Mathf.Floor(st.x), Mathf.Floor(st.x));
-            Vector2 f_st = new Vector2(Frac(st.x), Frac(st.x));
+            Vector2 i_st = new Vector2(Mathf.Floor(st.x), Mathf.Floor(st.y));
+            Vector2 f_st = new Vector2(Frac(st.x), Frac(st.y));
 
             float m_dist = 10f; // minimun distance
 
