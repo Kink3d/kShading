@@ -37,7 +37,7 @@ namespace ToonShading
                 {
                     Vector2 neighbor = new Vector2(i, j); // Sample neighbours
                     Vector2 p = random2(i_st + neighbor);
-                    p = new Vector2(0.5f, 0.5f) + 0.5f * new Vector2(Mathf.Sin(Time.time + 6.2831f * p.x), Mathf.Sin(Time.deltaTime + 6.2831f * p.y));
+                    p = new Vector2(0.5f, 0.5f) + 0.5f * new Vector2(Mathf.Sin(Time.time + 6.2831f * p.x), Mathf.Sin(Time.time + 6.2831f * p.y));
                     Vector2 diff = neighbor + p - f_st;
                     float dist = diff.magnitude;
 
