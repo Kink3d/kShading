@@ -1,0 +1,9 @@
+{
+    "name": "com.kink3d.shading",
+    "description": "Shading models for Unity's Universal Render Pipeline.",
+    "version": "2.0.0",
+    "unity": "2013.3",
+    "displayName": "kShading",
+    "dependencies": {
+    }
+}
