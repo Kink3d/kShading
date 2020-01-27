@@ -17,12 +17,16 @@ half _BumpScale;
 half _OcclusionStrength;
 half _ClearCoat;
 half _ClearCoatSmoothness;
+half3 _SubsurfaceColor;
+half _Thickness;
 CBUFFER_END
 
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
 TEXTURE2D(_MetallicGlossMap);   SAMPLER(sampler_MetallicGlossMap);
 TEXTURE2D(_SpecGlossMap);       SAMPLER(sampler_SpecGlossMap);
 TEXTURE2D(_ClearCoatMap);       SAMPLER(sampler_ClearCoatMap);
+TEXTURE2D(_SubsurfaceMap);      SAMPLER(sampler_SubsurfaceMap);
+TEXTURE2D(_ThicknessMap);       SAMPLER(sampler_ThicknessMap);
 
 #ifdef _SPECULAR_SETUP
     #define SAMPLE_METALLICSPECULAR(uv) SAMPLE_TEXTURE2D(_SpecGlossMap, sampler_SpecGlossMap, uv)
@@ -78,12 +82,33 @@ half2 SampleClearCoat(float2 uv)
     half2 clearCoatGloss;
 
 #ifdef _CLEARCOATMAP
-    clearCoatGloss = SAMPLE_TEXTURE2D(_ClearCoatMap, sampler_ClearCoatMap, uv).rg * _ClearCoatSmoothness;
+    clearCoatGloss = SAMPLE_TEXTURE2D(_ClearCoatMap, sampler_ClearCoatMap, uv).rg;
+    clearCoatGloss.g *= _ClearCoatSmoothness;
 #else
     clearCoatGloss.r = _ClearCoat;
     clearCoatGloss.g = _ClearCoatSmoothness;
 #endif
     return clearCoatGloss;
+}
+
+half3 SampleSubsurface(float2 uv)
+{
+#ifdef _SUBSURFACEMAP
+    half4 subsurface = SAMPLE_TEXTURE2D(_SubsurfaceMap, sampler_SubsurfaceMap, uv);
+    return subsurface.rgb * _SubsurfaceColor.rgb;
+#else
+    return _SubsurfaceColor;
+#endif
+}
+
+half SampleTransmission(float2 uv)
+{
+#ifdef _THICKNESSMAP
+    half thickness = SAMPLE_TEXTURE2D(_ThicknessMap, sampler_ThicknessMap, uv).r;
+    return lerp(thickness, 1, _Thickness);
+#else
+    return _Thickness;
+#endif
 }
 
 struct SurfaceDataExtended
@@ -99,6 +124,12 @@ struct SurfaceDataExtended
     #ifdef _CLEARCOAT
         half clearCoat;
         half clearCoatSmoothness;
+    #endif
+    #ifdef _SUBSURFACE
+        half3 subsurfaceColor;
+    #endif
+    #ifdef _TRANSMISSION
+        half thickness;
     #endif
 };
 
@@ -127,6 +158,12 @@ inline void InitializeSurfaceDataExtended(float2 uv, out SurfaceDataExtended out
     half2 clearCoatGloss = SampleClearCoat(uv);
     outSurfaceData.clearCoat = clearCoatGloss.r;
     outSurfaceData.clearCoatSmoothness = clearCoatGloss.g;
+#endif
+#ifdef _SUBSURFACE
+    outSurfaceData.subsurfaceColor = SampleSubsurface(uv);
+#endif
+#ifdef _TRANSMISSION
+    outSurfaceData.thickness = SampleTransmission(uv);
 #endif
 }
 

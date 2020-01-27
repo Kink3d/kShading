@@ -35,6 +35,16 @@
         _ClearCoat("Clear Coat", Range(0.0, 1.0)) = 1.0
         _ClearCoatSmoothness("Clear Coat Smoothness", Range(0.0, 1.0)) = 0.5
 
+        // Subsurface Scattering
+        [ToggleOff] _EnableSubsurface("Enable Subsurface Scattering", Float) = 0.0
+        _SubsurfaceMap("Subsurface Color", 2D) = "white" {}
+        _SubsurfaceColor("Subsurface Color", Color) = (1,1,1,1)
+
+        // Transmission
+        [ToggleOff] _EnableTransmission("Enable Transmission", Float) = 0.0
+        _ThicknessMap("Thickness", 2D) = "black" {}
+        _Thickness("Thickness", Range(0.0, 1.0)) = 0.5
+
         // Advanced Options
         _ReceiveShadows("Receive Shadows", Float) = 1.0
 		[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
@@ -85,6 +95,10 @@
 
             #pragma shader_feature _CLEARCOAT
             #pragma shader_feature _CLEARCOATMAP
+            #pragma shader_feature _SUBSURFACE
+            #pragma shader_feature _SUBSURFACEMAP
+            #pragma shader_feature _TRANSMISSION
+            #pragma shader_feature _THICKNESSMAP
 
             // -------------------------------------
             // Universal Pipeline keywords

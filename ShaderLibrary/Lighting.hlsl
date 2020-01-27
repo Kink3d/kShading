@@ -25,13 +25,19 @@ struct BRDFDataExtended
     half normalizationTerm;     // roughness * 4.0 + 2.0
     half roughness2MinusOne;    // roughness^2 - 1.0
 
-    #ifdef _CLEARCOAT
-        half clearCoat;
-        half perceptualClearCoatRoughness;
-        half clearCoatRoughness;
-        half clearCoatRoughness2;
-        half clearCoatRoughness2MinusOne;
-    #endif
+#ifdef _CLEARCOAT
+    half clearCoat;
+    half perceptualClearCoatRoughness;
+    half clearCoatRoughness;
+    half clearCoatRoughness2;
+    half clearCoatRoughness2MinusOne;
+#endif
+#ifdef _SUBSURFACE
+    half3 subsurfaceColor;
+#endif
+#ifdef _TRANSMISSION
+    half thickness;
+#endif
 };
 
 #if defined(_CLEARCOAT) && defined(_REFERENCE)
@@ -103,6 +109,13 @@ inline void InitializeBRDFDataExtended(SurfaceDataExtended surfaceData, out BRDF
 #ifdef _ALPHAPREMULTIPLY_ON
     outBRDFData.diffuse *= surfaceData.alpha;
     surfaceData.alpha = surfaceData.alpha * oneMinusReflectivity + reflectivity;
+#endif
+
+#ifdef _SUBSURFACE
+    outBRDFData.subsurfaceColor = surfaceData.subsurfaceColor;
+#endif
+#ifdef _TRANSMISSION
+    outBRDFData.thickness = surfaceData.thickness;
 #endif
 }
 
@@ -209,8 +222,25 @@ half3 LightingExtended(BRDFDataExtended brdfData, Light light, half3 normalWS, h
 {
     half NdotL = saturate(dot(normalWS, light.direction));
     half lightAttenuation = light.distanceAttenuation * light.shadowAttenuation;
+    
+    half3 internalColor = brdfData.diffuse;
+#ifdef _SUBSURFACE
+    half NdotLWrap = saturate((dot(normalWS, light.direction) + brdfData.subsurfaceColor) / ((1 + brdfData.subsurfaceColor) * (1 + brdfData.subsurfaceColor)));
+    half3 radiance = light.color * (lightAttenuation * lerp(NdotLWrap * brdfData.subsurfaceColor, NdotLWrap, NdotL));
+    internalColor = brdfData.subsurfaceColor;
+#else
     half3 radiance = light.color * (lightAttenuation * NdotL);
-    return DirectBDRFExtended(brdfData, normalWS, light.direction, viewDirectionWS) * radiance;
+#endif
+
+    half3 color = DirectBDRFExtended(brdfData, normalWS, light.direction, viewDirectionWS) * radiance;
+
+#ifdef _TRANSMISSION
+    half3 subsurfaceHalfDir = SafeNormalize(light.direction + normalWS * (0.5 - internalColor * 0.5));
+    half subsurfaceVoH = saturate(dot(viewDirectionWS, -subsurfaceHalfDir));
+    half3 transmission = subsurfaceVoH * (1 - brdfData.thickness) / ((2 - internalColor) * (2 - internalColor));
+    color += transmission * light.color;
+#endif
+    return color;
 }
 
 // -------------------------------------

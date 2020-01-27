@@ -37,6 +37,18 @@ namespace kTools.Shading.Editor
             
             public static readonly GUIContent ClearCoatSmoothness = new GUIContent("Smoothness", 
                 "Controls the spread of highlights and reflections for the Clear Coat layer");
+
+            public static readonly GUIContent EnableSubsurface = new GUIContent("Subsurface Scattering",
+                "Enable Subsurface Scattering for the surface");
+
+            public static readonly GUIContent Subsurface = new GUIContent("Subsurface",
+                "Specifies the base map and color of the subsurface");
+            
+            public static readonly GUIContent EnableTransmission = new GUIContent("Transmission",
+                "Enable Transmission for the surface");
+
+            public static readonly GUIContent Thickness = new GUIContent("Thickness",
+                "Sets and configures the thickness map for Transmission.");
         }
 
         struct PropertyNames
@@ -58,6 +70,12 @@ namespace kTools.Shading.Editor
             public static readonly string ClearCoatMap = "_ClearCoatMap";
             public static readonly string ClearCoat = "_ClearCoat";
             public static readonly string ClearCoatSmoothness = "_ClearCoatSmoothness";
+            public static readonly string EnableSubsurface = "_EnableSubsurface";
+            public static readonly string SubsurfaceMap = "_SubsurfaceMap";
+            public static readonly string SubsurfaceColor = "_SubsurfaceColor";
+            public static readonly string EnableTransmission = "_EnableTransmission";
+            public static readonly string ThicknessMap = "_ThicknessMap";
+            public static readonly string Thickness = "_Thickness";
         }
 #endregion
 
@@ -79,6 +97,12 @@ namespace kTools.Shading.Editor
         MaterialProperty m_ClearCoatMapProp;
         MaterialProperty m_ClearCoatProp;
         MaterialProperty m_ClearCoatSmoothnessProp;
+        MaterialProperty m_EnableSubsurfaceProp;
+        MaterialProperty m_SubsurfaceMapProp;
+        MaterialProperty m_SubsurfaceColorProp;
+        MaterialProperty m_EnableTransmissionProp;
+        MaterialProperty m_ThicknessMapProp;
+        MaterialProperty m_ThicknessProp;
 #endregion
 
 #region GUI
@@ -102,6 +126,12 @@ namespace kTools.Shading.Editor
             m_ClearCoatMapProp = FindProperty(PropertyNames.ClearCoatMap, properties, false);
             m_ClearCoatProp = FindProperty(PropertyNames.ClearCoat, properties, false);
             m_ClearCoatSmoothnessProp = FindProperty(PropertyNames.ClearCoatSmoothness, properties, false);
+            m_EnableSubsurfaceProp = FindProperty(PropertyNames.EnableSubsurface, properties, false);
+            m_SubsurfaceMapProp = FindProperty(PropertyNames.SubsurfaceMap, properties, false);
+            m_SubsurfaceColorProp = FindProperty(PropertyNames.SubsurfaceColor, properties, false);
+            m_EnableTransmissionProp = FindProperty(PropertyNames.EnableTransmission, properties, false);
+            m_ThicknessMapProp = FindProperty(PropertyNames.ThicknessMap, properties, false);
+            m_ThicknessProp = FindProperty(PropertyNames.Thickness, properties, false);
         }
 
         public override void DrawSurfaceInputs(MaterialEditor materialEditor)
@@ -161,6 +191,20 @@ namespace kTools.Shading.Editor
                 materialEditor.ShaderProperty(m_ClearCoatSmoothnessProp, Labels.ClearCoatSmoothness);
                 EditorGUI.indentLevel -= 2;
             }
+
+            // Subsurface Scattering
+            materialEditor.ShaderProperty(m_EnableSubsurfaceProp, Labels.EnableSubsurface);
+            if (m_EnableSubsurfaceProp.floatValue == 1.0)
+            {
+                materialEditor.TexturePropertySingleLine(Labels.Subsurface, m_SubsurfaceMapProp, m_SubsurfaceColorProp);
+            }
+
+            // Transmission
+            materialEditor.ShaderProperty(m_EnableTransmissionProp, Labels.EnableTransmission);
+            if (m_EnableTransmissionProp.floatValue == 1.0)
+            {
+                materialEditor.TexturePropertySingleLine(Labels.Thickness, m_ThicknessMapProp, m_ThicknessProp);
+            }
         }
 #endregion
 
@@ -179,6 +223,9 @@ namespace kTools.Shading.Editor
             // Normal
             material.SetKeyword("_NORMALMAP", material.GetTexture(PropertyNames.BumpMap) != null);
 
+            // Occlusion
+            material.SetKeyword("_OCCLUSIONMAP", material.GetTexture(PropertyNames.OcclusionMap) != null);
+
             // Emission
             bool hasEmissionMap = material.GetTexture(PropertyNames.EmissionMap) != null;
             Color emissionColor = material.GetColor(PropertyNames.EmissionColor);
@@ -187,6 +234,14 @@ namespace kTools.Shading.Editor
             // Clear Coat
             material.SetKeyword("_CLEARCOAT", material.GetFloat(PropertyNames.EnableClearCoat) == 1.0f);
             material.SetKeyword("_CLEARCOATMAP", material.GetTexture(PropertyNames.ClearCoatMap) != null);
+
+            // Subsurface Scattering
+            material.SetKeyword("_SUBSURFACE", material.GetFloat(PropertyNames.EnableSubsurface) == 1.0f);
+            material.SetKeyword("_SUBSURFACEMAP", material.GetTexture(PropertyNames.SubsurfaceMap) != null);
+           
+            // Transmission
+            material.SetKeyword("_TRANSMISSION", material.GetFloat(PropertyNames.EnableTransmission) == 1.0f);
+            material.SetKeyword("_THICKNESSMAP", material.GetTexture(PropertyNames.ThicknessMap) != null);
         }
 #endregion
     }
