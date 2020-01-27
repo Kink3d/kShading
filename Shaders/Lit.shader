@@ -13,7 +13,7 @@
 		[HideInInspector] _AlphaClip("__clip", Float) = 0.0
 		_Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
 
-        // Surface Inputs
+        // Default Surface Inputs
 		_BaseMap("Albedo", 2D) = "white" {}
 		_BaseColor("Color", Color) = (1.0, 1.0, 1.0, 1.0)
 		_Metallic("Metallic", Range(0.0, 1.0)) = 0.0
@@ -28,6 +28,12 @@
         _OcclusionMap("Occlusion", 2D) = "white" {}
         _EmissionColor("Color", Color) = (0,0,0)
         _EmissionMap("Emission", 2D) = "white" {}
+
+        // Clear Coat
+        [ToggleOff] _EnableClearCoat("Clear Coat", Float) = 0.0
+        _ClearCoatMap("Clear Coat", 2D) = "white" {}
+        _ClearCoat("Clear Coat", Range(0.0, 1.0)) = 1.0
+        _ClearCoatSmoothness("Clear Coat Smoothness", Range(0.0, 1.0)) = 0.5
 
         // Advanced Options
         _ReceiveShadows("Receive Shadows", Float) = 1.0
@@ -76,6 +82,9 @@
             #pragma shader_feature _ENVIRONMENTREFLECTIONS_OFF
             #pragma shader_feature _SPECULAR_SETUP
             #pragma shader_feature _RECEIVE_SHADOWS_OFF
+
+            #pragma shader_feature _CLEARCOAT
+            #pragma shader_feature _CLEARCOATMAP
 
             // -------------------------------------
             // Universal Pipeline keywords

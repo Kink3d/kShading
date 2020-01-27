@@ -15,11 +15,14 @@ half _Smoothness;
 half _Metallic;
 half _BumpScale;
 half _OcclusionStrength;
+half _ClearCoat;
+half _ClearCoatSmoothness;
 CBUFFER_END
 
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
 TEXTURE2D(_MetallicGlossMap);   SAMPLER(sampler_MetallicGlossMap);
 TEXTURE2D(_SpecGlossMap);       SAMPLER(sampler_SpecGlossMap);
+TEXTURE2D(_ClearCoatMap);       SAMPLER(sampler_ClearCoatMap);
 
 #ifdef _SPECULAR_SETUP
     #define SAMPLE_METALLICSPECULAR(uv) SAMPLE_TEXTURE2D(_SpecGlossMap, sampler_SpecGlossMap, uv)
@@ -70,7 +73,36 @@ half SampleOcclusion(float2 uv)
 #endif
 }
 
-inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfaceData)
+half2 SampleClearCoat(float2 uv)
+{
+    half2 clearCoatGloss;
+
+#ifdef _CLEARCOATMAP
+    clearCoatGloss = SAMPLE_TEXTURE2D(_ClearCoatMap, sampler_ClearCoatMap, uv).rg * _ClearCoatSmoothness;
+#else
+    clearCoatGloss.r = _ClearCoat;
+    clearCoatGloss.g = _ClearCoatSmoothness;
+#endif
+    return clearCoatGloss;
+}
+
+struct SurfaceDataExtended
+{
+    half3 albedo;
+    half3 specular;
+    half  metallic;
+    half  smoothness;
+    half3 normalTS;
+    half3 emission;
+    half  occlusion;
+    half  alpha;
+    #ifdef _CLEARCOAT
+        half clearCoat;
+        half clearCoatSmoothness;
+    #endif
+};
+
+inline void InitializeSurfaceDataExtended(float2 uv, out SurfaceDataExtended outSurfaceData)
 {
     half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
     outSurfaceData.alpha = Alpha(albedoAlpha.a, _BaseColor, _Cutoff);
@@ -90,6 +122,12 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     outSurfaceData.normalTS = SampleNormal(uv, TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap), _BumpScale);
     outSurfaceData.occlusion = SampleOcclusion(uv);
     outSurfaceData.emission = SampleEmission(uv, _EmissionColor.rgb, TEXTURE2D_ARGS(_EmissionMap, sampler_EmissionMap));
+
+#ifdef _CLEARCOAT
+    half2 clearCoatGloss = SampleClearCoat(uv);
+    outSurfaceData.clearCoat = clearCoatGloss.r;
+    outSurfaceData.clearCoatSmoothness = clearCoatGloss.g;
+#endif
 }
 
 #endif

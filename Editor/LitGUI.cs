@@ -28,6 +28,15 @@ namespace kTools.Shading.Editor
 
             public static readonly GUIContent Emission = new GUIContent("Emission",
                 "Sets a map and color to use for emission. Colors are multiplied over the Texture.");
+
+            public static readonly GUIContent EnableClearCoat = new GUIContent("Clear Coat",
+                "Enable Clear Coat layer for the surface");
+            
+            public static readonly GUIContent ClearCoat = new GUIContent("Clear Coat", 
+                "Sets and configures the map for Clear Coat. Red channel defines Clear Coat strength. Green channel defines Smoothness for the Clear Coat layer");
+            
+            public static readonly GUIContent ClearCoatSmoothness = new GUIContent("Smoothness", 
+                "Controls the spread of highlights and reflections for the Clear Coat layer");
         }
 
         struct PropertyNames
@@ -45,6 +54,10 @@ namespace kTools.Shading.Editor
             public static readonly string OcclusionStrength = "_OcclusionStrength";
             public static readonly string EmissionMap = "_EmissionMap";
             public static readonly string EmissionColor = "_EmissionColor";
+            public static readonly string EnableClearCoat = "_EnableClearCoat";
+            public static readonly string ClearCoatMap = "_ClearCoatMap";
+            public static readonly string ClearCoat = "_ClearCoat";
+            public static readonly string ClearCoatSmoothness = "_ClearCoatSmoothness";
         }
 #endregion
 
@@ -62,6 +75,10 @@ namespace kTools.Shading.Editor
         MaterialProperty m_OcclusionStrengthProp;
         MaterialProperty m_EmissionMapProp;
         MaterialProperty m_EmissionColorProp;
+        MaterialProperty m_EnableClearCoatProp;
+        MaterialProperty m_ClearCoatMapProp;
+        MaterialProperty m_ClearCoatProp;
+        MaterialProperty m_ClearCoatSmoothnessProp;
 #endregion
 
 #region GUI
@@ -81,6 +98,10 @@ namespace kTools.Shading.Editor
             m_OcclusionStrengthProp = FindProperty(PropertyNames.OcclusionStrength, properties, false);
             m_EmissionMapProp = FindProperty(PropertyNames.EmissionMap, properties, false);
             m_EmissionColorProp = FindProperty(PropertyNames.EmissionColor, properties, false);
+            m_EnableClearCoatProp = FindProperty(PropertyNames.EnableClearCoat, properties, false);
+            m_ClearCoatMapProp = FindProperty(PropertyNames.ClearCoatMap, properties, false);
+            m_ClearCoatProp = FindProperty(PropertyNames.ClearCoat, properties, false);
+            m_ClearCoatSmoothnessProp = FindProperty(PropertyNames.ClearCoatSmoothness, properties, false);
         }
 
         public override void DrawSurfaceInputs(MaterialEditor materialEditor)
@@ -130,6 +151,16 @@ namespace kTools.Shading.Editor
             var brightness = m_EmissionColorProp.colorValue.maxColorComponent;
             if (m_EmissionMapProp.textureValue != null && !hadEmissionTexture && brightness <= 0f)
                 m_EmissionColorProp.colorValue = Color.white;
+
+            // Clear Coat
+            materialEditor.ShaderProperty(m_EnableClearCoatProp, Labels.EnableClearCoat);
+            if (m_EnableClearCoatProp.floatValue == 1.0)
+            {
+                materialEditor.TexturePropertySingleLine(Labels.ClearCoat, m_ClearCoatMapProp, m_ClearCoatMapProp.textureValue == null ? m_ClearCoatProp : null);
+                EditorGUI.indentLevel += 2;
+                materialEditor.ShaderProperty(m_ClearCoatSmoothnessProp, Labels.ClearCoatSmoothness);
+                EditorGUI.indentLevel -= 2;
+            }
         }
 #endregion
 
@@ -152,6 +183,10 @@ namespace kTools.Shading.Editor
             bool hasEmissionMap = material.GetTexture(PropertyNames.EmissionMap) != null;
             Color emissionColor = material.GetColor(PropertyNames.EmissionColor);
             material.SetKeyword("_EMISSION", hasEmissionMap || emissionColor != Color.black);
+
+            // Clear Coat
+            material.SetKeyword("_CLEARCOAT", material.GetFloat(PropertyNames.EnableClearCoat) == 1.0f);
+            material.SetKeyword("_CLEARCOATMAP", material.GetTexture(PropertyNames.ClearCoatMap) != null);
         }
 #endregion
     }

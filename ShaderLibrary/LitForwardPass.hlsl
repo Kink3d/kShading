@@ -1,7 +1,7 @@
 #ifndef KSHADING_LIT_FORWARDPASS_INCLUDED
 #define KSHADING_LIT_FORWARDPASS_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Packages/com.kink3d.shading/ShaderLibrary/Lighting.hlsl"
 
 struct Attributes
 {
@@ -127,13 +127,13 @@ half4 LitPassFragment(Varyings input) : SV_Target
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-    SurfaceData surfaceData;
-    InitializeStandardLitSurfaceData(input.uv, surfaceData);
+    SurfaceDataExtended surfaceData;
+    InitializeSurfaceDataExtended(input.uv, surfaceData);
 
     InputData inputData;
     InitializeInputData(input, surfaceData.normalTS, inputData);
 
-    half4 color = UniversalFragmentPBR(inputData, surfaceData.albedo, surfaceData.metallic, surfaceData.specular, surfaceData.smoothness, surfaceData.occlusion, surfaceData.emission, surfaceData.alpha);
+    half4 color = FragmentLitExtended(inputData, surfaceData);
 
     color.rgb = MixFog(color.rgb, inputData.fogCoord);
     return color;
