@@ -1,10 +1,14 @@
 #ifndef KSHADING_LIT_INPUT_INCLUDED
 #define KSHADING_LIT_INPUT_INCLUDED
 
+// -------------------------------------
+// Includes
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
 
+// -------------------------------------
+// Uniforms
 CBUFFER_START(UnityPerMaterial)
 float4 _BaseMap_ST;
 half4 _BaseColor;
@@ -28,12 +32,16 @@ TEXTURE2D(_ClearCoatMap);       SAMPLER(sampler_ClearCoatMap);
 TEXTURE2D(_SubsurfaceMap);      SAMPLER(sampler_SubsurfaceMap);
 TEXTURE2D(_ThicknessMap);       SAMPLER(sampler_ThicknessMap);
 
+// -------------------------------------
+// Macros
 #ifdef _SPECULAR_SETUP
     #define SAMPLE_METALLICSPECULAR(uv) SAMPLE_TEXTURE2D(_SpecGlossMap, sampler_SpecGlossMap, uv)
 #else
     #define SAMPLE_METALLICSPECULAR(uv) SAMPLE_TEXTURE2D(_MetallicGlossMap, sampler_MetallicGlossMap, uv)
 #endif
 
+// -------------------------------------
+// Material Helpers
 half4 SampleMetallicSpecGloss(float2 uv, half albedoAlpha)
 {
     half4 specGloss;
@@ -111,6 +119,8 @@ half SampleTransmission(float2 uv)
 #endif
 }
 
+// -------------------------------------
+// SurfaceData
 struct SurfaceDataExtended
 {
     half3 albedo;

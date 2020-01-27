@@ -1,8 +1,12 @@
 #ifndef KSHADING_LIT_FORWARDPASS_INCLUDED
 #define KSHADING_LIT_FORWARDPASS_INCLUDED
 
+// -------------------------------------
+// Includes
 #include "Packages/com.kink3d.shading/ShaderLibrary/Lighting.hlsl"
 
+// -------------------------------------
+// Structs
 struct Attributes
 {
     float4 positionOS   : POSITION;
@@ -42,6 +46,8 @@ struct Varyings
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
+// -------------------------------------
+// InputData
 void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
 {
     inputData = (InputData)0;
@@ -73,11 +79,8 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
     inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//                  Vertex and Fragment functions                            //
-///////////////////////////////////////////////////////////////////////////////
-
-// Used in Standard (Physically Based) shader
+// -------------------------------------
+// Vertex
 Varyings LitPassVertex(Attributes input)
 {
     Varyings output = (Varyings)0;
@@ -121,7 +124,8 @@ Varyings LitPassVertex(Attributes input)
     return output;
 }
 
-// Used in Standard (Physically Based) shader
+// -------------------------------------
+// Fragment
 half4 LitPassFragment(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
