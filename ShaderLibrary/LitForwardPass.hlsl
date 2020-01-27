@@ -26,7 +26,7 @@ struct Varyings
     float3 positionWS               : TEXCOORD2;
 #endif
 
-#ifdef _NORMALMAP
+#if defined(_NORMALMAP) || defined(_ANISOTROPY)
     float4 normalWS                 : TEXCOORD3;    // xyz: normal, w: viewDir.x
     float4 tangentWS                : TEXCOORD4;    // xyz: tangent, w: viewDir.y
     float4 bitangentWS              : TEXCOORD5;    // xyz: bitangent, w: viewDir.z
@@ -48,21 +48,26 @@ struct Varyings
 
 // -------------------------------------
 // InputData
-void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
+void InitializeInputDataExtended(Varyings input, half3 normalTS, out InputDataExtended inputData)
 {
-    inputData = (InputData)0;
+    inputData = (InputDataExtended)0;
 
 #ifdef _ADDITIONAL_LIGHTS
     inputData.positionWS = input.positionWS;
 #endif
 
-#ifdef _NORMALMAP
+#if defined(_NORMALMAP) || defined(_ANISOTROPY)
     half3 viewDirWS = half3(input.normalWS.w, input.tangentWS.w, input.bitangentWS.w);
     inputData.normalWS = TransformTangentToWorld(normalTS,
         half3x3(input.tangentWS.xyz, input.bitangentWS.xyz, input.normalWS.xyz));
 #else
     half3 viewDirWS = input.viewDirWS;
     inputData.normalWS = input.normalWS;
+#endif
+
+#ifdef _ANISOTROPY
+    inputData.tangentWS = input.tangentWS.xyz;
+    inputData.bitangentWS = input.bitangentWS.xyz;
 #endif
 
     inputData.normalWS = NormalizeNormalPerPixel(inputData.normalWS);
@@ -97,7 +102,7 @@ Varyings LitPassVertex(Attributes input)
 
     output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
 
-#ifdef _NORMALMAP
+#if defined(_NORMALMAP) || defined(_ANISOTROPY)
     output.normalWS = half4(normalInput.normalWS, viewDirWS.x);
     output.tangentWS = half4(normalInput.tangentWS, viewDirWS.y);
     output.bitangentWS = half4(normalInput.bitangentWS, viewDirWS.z);
@@ -134,8 +139,8 @@ half4 LitPassFragment(Varyings input) : SV_Target
     SurfaceDataExtended surfaceData;
     InitializeSurfaceDataExtended(input.uv, surfaceData);
 
-    InputData inputData;
-    InitializeInputData(input, surfaceData.normalTS, inputData);
+    InputDataExtended inputData;
+    InitializeInputDataExtended(input, surfaceData.normalTS, inputData);
 
     half4 color = FragmentLitExtended(inputData, surfaceData);
 

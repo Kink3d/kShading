@@ -19,6 +19,7 @@ half _Smoothness;
 half _Metallic;
 half _BumpScale;
 half _OcclusionStrength;
+half _Anisotropy;
 half _ClearCoat;
 half _ClearCoatSmoothness;
 half3 _SubsurfaceColor;
@@ -28,6 +29,8 @@ CBUFFER_END
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
 TEXTURE2D(_MetallicGlossMap);   SAMPLER(sampler_MetallicGlossMap);
 TEXTURE2D(_SpecGlossMap);       SAMPLER(sampler_SpecGlossMap);
+TEXTURE2D(_AnisotropyMap);      SAMPLER(sampler_AnisotropyMap);
+TEXTURE2D(_DirectionMap);       SAMPLER(sampler_DirectionMap);
 TEXTURE2D(_ClearCoatMap);       SAMPLER(sampler_ClearCoatMap);
 TEXTURE2D(_SubsurfaceMap);      SAMPLER(sampler_SubsurfaceMap);
 TEXTURE2D(_ThicknessMap);       SAMPLER(sampler_ThicknessMap);
@@ -39,6 +42,34 @@ TEXTURE2D(_ThicknessMap);       SAMPLER(sampler_ThicknessMap);
 #else
     #define SAMPLE_METALLICSPECULAR(uv) SAMPLE_TEXTURE2D(_MetallicGlossMap, sampler_MetallicGlossMap, uv)
 #endif
+
+// -------------------------------------
+// Structs
+struct SurfaceDataExtended
+{
+    half3 albedo;
+    half3 specular;
+    half  metallic;
+    half  smoothness;
+    half3 normalTS;
+    half3 emission;
+    half  occlusion;
+    half  alpha;
+    #ifdef _ANISOTROPY
+        half anisotropy;
+        half3 direction;
+    #endif
+    #ifdef _CLEARCOAT
+        half clearCoat;
+        half clearCoatSmoothness;
+    #endif
+    #ifdef _SUBSURFACE
+        half3 subsurfaceColor;
+    #endif
+    #ifdef _TRANSMISSION
+        half thickness;
+    #endif
+};
 
 // -------------------------------------
 // Material Helpers
@@ -85,6 +116,26 @@ half SampleOcclusion(float2 uv)
 #endif
 }
 
+half SampleAnisotropy(float2 uv)
+{
+#ifdef _ANISOTROPYMAP
+    half4 anisotropy = SAMPLE_TEXTURE2D(_AnisotropyMap, sampler_AnisotropyMap, uv);
+    return anisotropy.r * _Anisotropy;
+#else
+    return _Anisotropy;
+#endif
+}
+
+half3 SampleDirection(float2 uv)
+{
+#ifdef _DIRECTIONMAP
+    half4 direction = SAMPLE_TEXTURE2D(_DirectionMap, sampler_DirectionMap, uv);
+    return direction.rgb;
+#else
+    return half3(1, 0, 0);
+#endif
+}
+
 half2 SampleClearCoat(float2 uv)
 {
     half2 clearCoatGloss;
@@ -121,28 +172,6 @@ half SampleTransmission(float2 uv)
 
 // -------------------------------------
 // SurfaceData
-struct SurfaceDataExtended
-{
-    half3 albedo;
-    half3 specular;
-    half  metallic;
-    half  smoothness;
-    half3 normalTS;
-    half3 emission;
-    half  occlusion;
-    half  alpha;
-    #ifdef _CLEARCOAT
-        half clearCoat;
-        half clearCoatSmoothness;
-    #endif
-    #ifdef _SUBSURFACE
-        half3 subsurfaceColor;
-    #endif
-    #ifdef _TRANSMISSION
-        half thickness;
-    #endif
-};
-
 inline void InitializeSurfaceDataExtended(float2 uv, out SurfaceDataExtended outSurfaceData)
 {
     half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
@@ -164,6 +193,10 @@ inline void InitializeSurfaceDataExtended(float2 uv, out SurfaceDataExtended out
     outSurfaceData.occlusion = SampleOcclusion(uv);
     outSurfaceData.emission = SampleEmission(uv, _EmissionColor.rgb, TEXTURE2D_ARGS(_EmissionMap, sampler_EmissionMap));
 
+#ifdef _ANISOTROPY
+    outSurfaceData.anisotropy = SampleAnisotropy(uv);
+    outSurfaceData.direction = SampleDirection(uv);
+#endif
 #ifdef _CLEARCOAT
     half2 clearCoatGloss = SampleClearCoat(uv);
     outSurfaceData.clearCoat = clearCoatGloss.r;

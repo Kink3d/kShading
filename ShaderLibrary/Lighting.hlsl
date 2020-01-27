@@ -10,7 +10,22 @@
 #define _REFERENCE 0
 
 // -------------------------------------
-// BRDFData
+// Structs
+struct InputDataExtended
+{
+    float3  positionWS;
+    half3   normalWS;
+    half3   viewDirectionWS;
+    float4  shadowCoord;
+    half    fogCoord;
+    half3   vertexLighting;
+    half3   bakedGI;
+#ifdef _ANISOTROPY
+    half3   tangentWS;
+    half3   bitangentWS;
+#endif
+};
+
 struct BRDFDataExtended
 {
     half3 diffuse;
@@ -25,6 +40,11 @@ struct BRDFDataExtended
     half normalizationTerm;     // roughness * 4.0 + 2.0
     half roughness2MinusOne;    // roughness^2 - 1.0
 
+#ifdef _ANISOTROPY
+    half anisotropy;
+    half3 anisotropicTangent;
+    half3 anisotropicBitangent;
+#endif
 #ifdef _CLEARCOAT
     half clearCoat;
     half perceptualClearCoatRoughness;
@@ -40,6 +60,8 @@ struct BRDFDataExtended
 #endif
 };
 
+// -------------------------------------
+// BRDFData
 #if defined(_CLEARCOAT) && defined(_REFERENCE)
     #define CLEAR_COAT_IOR 1.5h
     #define CLEAR_COAT_IETA (1.0h / CLEAR_COAT_IOR) // IETA is the inverse eta which is the ratio of IOR of two interface
@@ -56,7 +78,7 @@ half3 f0ClearCoatToSurface(half3 f0)
 #endif
 }
 
-inline void InitializeBRDFDataExtended(SurfaceDataExtended surfaceData, out BRDFDataExtended outBRDFData)
+inline void InitializeBRDFDataExtended(SurfaceDataExtended surfaceData, InputDataExtended inputData, out BRDFDataExtended outBRDFData)
 {
 #ifdef _SPECULAR_SETUP
     half reflectivity = ReflectivitySpecular(surfaceData.specular);
@@ -77,6 +99,14 @@ inline void InitializeBRDFDataExtended(SurfaceDataExtended surfaceData, out BRDF
     outBRDFData.perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(surfaceData.smoothness);
     outBRDFData.roughness = max(PerceptualRoughnessToRoughness(outBRDFData.perceptualRoughness), HALF_MIN);
     outBRDFData.roughness2 = outBRDFData.roughness * outBRDFData.roughness;
+
+#ifdef _ANISOTROPY
+    half3 direction = surfaceData.direction;
+    half3x3 tangentToWorld = half3x3(inputData.tangentWS, inputData.bitangentWS, inputData.normalWS);
+    outBRDFData.anisotropy = surfaceData.anisotropy;
+    outBRDFData.anisotropicTangent = normalize(mul(direction, tangentToWorld));
+    outBRDFData.anisotropicBitangent = normalize(cross(inputData.normalWS, outBRDFData.anisotropicTangent));
+#endif
 
 #ifdef _CLEARCOAT
     // Calculate Roughness of Clear Coat layer
@@ -147,24 +177,38 @@ half3 DirectBDRFExtended(BRDFDataExtended brdfData, half3 normalWS, half3 lightD
 {
 #ifndef _SPECULARHIGHLIGHTS_OFF
     float3 halfDir = SafeNormalize(float3(lightDirectionWS) + float3(viewDirectionWS));
-
     float NoH = saturate(dot(normalWS, halfDir));
     half LoH = saturate(dot(lightDirectionWS, halfDir));
-
-    // GGX Distribution multiplied by combined approximation of Visibility and Fresnel
-    // BRDFspec = (D * V * F) / 4.0
-    // D = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2
-    // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
-    // See "Optimizing PBR for Mobile" from Siggraph 2015 moving mobile graphics course
-    // https://community.arm.com/events/1155
-
-    // Final BRDFspec = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2 * (LoH^2 * (roughness + 0.5) * 4.0)
-    // We further optimize a few light invariant terms
-    // brdfData.normalizationTerm = (roughness + 0.5) * 4.0 rewritten as roughness * 4.0 + 2.0 to a fit a MAD.
-    float d = NoH * NoH * brdfData.roughness2MinusOne + 1.00001f;
-
     half LoH2 = LoH * LoH;
-    half specularTerm = brdfData.roughness2 / ((d * d) * max(0.1h, LoH2) * brdfData.normalizationTerm);
+
+    #ifdef _ANISOTROPY
+        half ToH = dot(brdfData.anisotropicTangent, halfDir);
+        half BoH = dot(brdfData.anisotropicBitangent, halfDir);
+
+        // Anisotropic parameters: at and ab are the roughness along the tangent and bitangent
+        // to simplify materials, we derive them from a single roughness parameter
+        // Kulla 2017, "Revisiting Physically Based Shading at Imageworks"
+        half roughnessT = max(brdfData.roughness * (1.0 + brdfData.anisotropy), HALF_MIN);
+        half roughnessB = max(brdfData.roughness * (1.0 - brdfData.anisotropy), HALF_MIN);
+
+        // Anisotropic GGX Distribution multiplied by combined approximation of Visibility and Fresnel
+        // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
+        half d = D_GGXAniso(ToH, BoH, NoH, roughnessT, roughnessB);
+        half specularTerm = d * (LoH2 * (brdfData.perceptualRoughness + 0.5) * 4.0);
+    #else
+        // GGX Distribution multiplied by combined approximation of Visibility and Fresnel
+        // BRDFspec = (D * V * F) / 4.0
+        // D = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2
+        // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
+        // See "Optimizing PBR for Mobile" from Siggraph 2015 moving mobile graphics course
+        // https://community.arm.com/events/1155
+
+        // Final BRDFspec = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2 * (LoH^2 * (roughness + 0.5) * 4.0)
+        // We further optimize a few light invariant terms
+        // brdfData.normalizationTerm = (roughness + 0.5) * 4.0 rewritten as roughness * 4.0 + 2.0 to a fit a MAD.
+        float d = NoH * NoH * brdfData.roughness2MinusOne + 1.00001f;
+        half specularTerm = brdfData.roughness2 / ((d * d) * max(0.1h, LoH2) * brdfData.normalizationTerm);
+    #endif
 
     // On platforms where half actually means something, the denominator has a risk of overflow
     // clamp below was added specifically to "fix" that, but dx compiler (we convert bytecode to metal/gles)
@@ -201,7 +245,18 @@ void GlobalIlluminationClearCoat(BRDFDataExtended brdfData, half3 reflectVector,
 
 half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half3 bakedGI, half occlusion, half3 normalWS, half3 viewDirectionWS)
 {
+#ifdef _ANISOTROPY
+    half3 anisotropyDirection = lerp(brdfData.anisotropicBitangent, brdfData.anisotropicTangent, step(brdfData.anisotropy, 0));
+    half3 anisotropicTangent = cross(anisotropyDirection, viewDirectionWS);
+    half3 anisotropicNormal = cross(anisotropicTangent, anisotropyDirection);
+    half bendFactor = abs(brdfData.anisotropy) * saturate(5.0 * brdfData.perceptualRoughness);
+    half3 bentNormal = normalize(lerp(normalWS, anisotropicNormal, bendFactor));
+
+    half3 reflectVector = reflect(-viewDirectionWS, bentNormal);
+#else
     half3 reflectVector = reflect(-viewDirectionWS, normalWS);
+#endif
+
     half fresnelTerm = Pow4(1.0 - saturate(dot(normalWS, viewDirectionWS)));
 
     half3 indirectDiffuse = bakedGI * occlusion * brdfData.diffuse;
@@ -245,10 +300,10 @@ half3 LightingExtended(BRDFDataExtended brdfData, Light light, half3 normalWS, h
 
 // -------------------------------------
 // Fragment
-half4 FragmentLitExtended(InputData inputData, SurfaceDataExtended surfaceData)
+half4 FragmentLitExtended(InputDataExtended inputData, SurfaceDataExtended surfaceData)
 {
     BRDFDataExtended brdfData;
-    InitializeBRDFDataExtended(surfaceData, brdfData);
+    InitializeBRDFDataExtended(surfaceData, inputData, brdfData);
 
     Light mainLight = GetMainLight(inputData.shadowCoord);
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));

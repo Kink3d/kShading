@@ -29,6 +29,15 @@ namespace kTools.Shading.Editor
             public static readonly GUIContent Emission = new GUIContent("Emission",
                 "Sets a map and color to use for emission. Colors are multiplied over the Texture.");
 
+            public static readonly GUIContent EnableAnisotropy = new GUIContent("Anisotropy",
+                "Enable anisotropic highlights and reflections for the surface");
+
+            public static readonly GUIContent Anisotropy = new GUIContent("Anisotropy",
+                "Controls the amount of anisotropy. Positive values define anisotropy in the tangent direction and negative values in the bitangent direction.");
+
+            public static readonly GUIContent Direction = new GUIContent("Direction",
+                "Controls the directionality of highlights and reflections on the surface");
+
             public static readonly GUIContent EnableClearCoat = new GUIContent("Clear Coat",
                 "Enable Clear Coat layer for the surface");
             
@@ -66,6 +75,10 @@ namespace kTools.Shading.Editor
             public static readonly string OcclusionStrength = "_OcclusionStrength";
             public static readonly string EmissionMap = "_EmissionMap";
             public static readonly string EmissionColor = "_EmissionColor";
+            public static readonly string EnableAnisotropy = "_EnableAnisotropy";
+            public static readonly string AnisotropyMap = "_AnisotropyMap";
+            public static readonly string Anisotropy = "_Anisotropy";
+            public static readonly string DirectionMap = "_DirectionMap";
             public static readonly string EnableClearCoat = "_EnableClearCoat";
             public static readonly string ClearCoatMap = "_ClearCoatMap";
             public static readonly string ClearCoat = "_ClearCoat";
@@ -93,6 +106,10 @@ namespace kTools.Shading.Editor
         MaterialProperty m_OcclusionStrengthProp;
         MaterialProperty m_EmissionMapProp;
         MaterialProperty m_EmissionColorProp;
+        MaterialProperty m_EnableAnisotropyProp;
+        MaterialProperty m_AnisotropyMapProp;
+        MaterialProperty m_AnisotropyProp;
+        MaterialProperty m_DirectionMapProp;
         MaterialProperty m_EnableClearCoatProp;
         MaterialProperty m_ClearCoatMapProp;
         MaterialProperty m_ClearCoatProp;
@@ -122,6 +139,10 @@ namespace kTools.Shading.Editor
             m_OcclusionStrengthProp = FindProperty(PropertyNames.OcclusionStrength, properties, false);
             m_EmissionMapProp = FindProperty(PropertyNames.EmissionMap, properties, false);
             m_EmissionColorProp = FindProperty(PropertyNames.EmissionColor, properties, false);
+            m_EnableAnisotropyProp = FindProperty(PropertyNames.EnableAnisotropy, properties, false);
+            m_AnisotropyMapProp = FindProperty(PropertyNames.AnisotropyMap, properties, false);
+            m_AnisotropyProp = FindProperty(PropertyNames.Anisotropy, properties, false);
+            m_DirectionMapProp = FindProperty(PropertyNames.DirectionMap, properties, false);
             m_EnableClearCoatProp = FindProperty(PropertyNames.EnableClearCoat, properties, false);
             m_ClearCoatMapProp = FindProperty(PropertyNames.ClearCoatMap, properties, false);
             m_ClearCoatProp = FindProperty(PropertyNames.ClearCoat, properties, false);
@@ -177,6 +198,14 @@ namespace kTools.Shading.Editor
             materialEditor.TexturePropertyWithHDRColor(Labels.Emission, m_EmissionMapProp,
                 m_EmissionColorProp, false);
 
+            // Anisotropy
+            materialEditor.ShaderProperty(m_EnableAnisotropyProp, Labels.EnableAnisotropy);
+            if (m_EnableAnisotropyProp.floatValue == 1.0)
+            {
+                materialEditor.TexturePropertySingleLine(Labels.Anisotropy, m_AnisotropyMapProp, m_AnisotropyProp);
+                materialEditor.TexturePropertySingleLine(Labels.Direction, m_DirectionMapProp);
+            }
+
             // If texture was assigned and color was black set color to white
             var brightness = m_EmissionColorProp.colorValue.maxColorComponent;
             if (m_EmissionMapProp.textureValue != null && !hadEmissionTexture && brightness <= 0f)
@@ -230,6 +259,11 @@ namespace kTools.Shading.Editor
             bool hasEmissionMap = material.GetTexture(PropertyNames.EmissionMap) != null;
             Color emissionColor = material.GetColor(PropertyNames.EmissionColor);
             material.SetKeyword("_EMISSION", hasEmissionMap || emissionColor != Color.black);
+
+            // Anisotropy
+            material.SetKeyword("_ANISOTROPY", material.GetFloat(PropertyNames.EnableAnisotropy) == 1.0f);
+            material.SetKeyword("_ANISOTROPYMAP", material.GetTexture(PropertyNames.AnisotropyMap) != null);
+            material.SetKeyword("_DIRECTIONMAP", material.GetTexture(PropertyNames.DirectionMap) != null);
 
             // Clear Coat
             material.SetKeyword("_CLEARCOAT", material.GetFloat(PropertyNames.EnableClearCoat) == 1.0f);

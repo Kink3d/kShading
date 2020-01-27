@@ -29,6 +29,12 @@
         _EmissionColor("Color", Color) = (0,0,0)
         _EmissionMap("Emission", 2D) = "white" {}
 
+        // Anisotropy
+        [ToggleOff] _EnableAnisotropy("Anisotropy", Float) = 0.0
+        _AnisotropyMap("Anisotropy", 2D) = "white" {}
+        _Anisotropy("Anisotropy", Range(-1.0, 1.0)) = 0.0
+        _DirectionMap("Direction", 2D) = "white" {}
+
         // Clear Coat
         [ToggleOff] _EnableClearCoat("Clear Coat", Float) = 0.0
         _ClearCoatMap("Clear Coat", 2D) = "white" {}
@@ -93,6 +99,9 @@
             #pragma shader_feature _SPECULAR_SETUP
             #pragma shader_feature _RECEIVE_SHADOWS_OFF
 
+            #pragma shader_feature _ANISOTROPY
+            #pragma shader_feature _ANISOTROPYMAP
+            #pragma shader_feature _DIRECTIONMAP
             #pragma shader_feature _CLEARCOAT
             #pragma shader_feature _CLEARCOATMAP
             #pragma shader_feature _SUBSURFACE
