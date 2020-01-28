@@ -3,6 +3,7 @@
 
 // -------------------------------------
 // Includes
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
 // -------------------------------------
@@ -62,7 +63,6 @@ half DirectSpecularAnisotropicToon(float NoH, half LoH2, float3 halfDir,
     // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
     // If roughness is 0, returns (NdotH == 1 ? 1 : 0).
     // That is, it returns 1 for perfect mirror reflection, and 0 otherwise.
-    // half d = D_GGXAniso(ToH, BoH, NoH, roughnessT, roughnessB);
     half a2 = roughnessT * roughnessB;
     half3 v = half3(roughnessB * ToH, roughnessT * BoH, a2 * NoH);
     half s = dot(v, v);
@@ -121,8 +121,9 @@ half3 RadianceToon(half3 normalWS, half3 lightDirectionWS, half3 lightColor, hal
     half NdotL = ceil(saturate(dot(normalWS, lightDirectionWS)));
     
 #ifdef _SUBSURFACE
-    half NdotLWrap = saturate((dot(normalWS, lightDirectionWS) + subsurfaceColor) / ((1 + subsurfaceColor) * (1 + subsurfaceColor)));
-    return lightColor * (lightAttenuation * lerp(NdotLWrap * subsurfaceColor, NdotLWrap, NdotL));
+    half subsurfaceLuminance = Luminance(subsurfaceColor);
+    half NdotLWrap = ceil(saturate((dot(normalWS, lightDirectionWS) + subsurfaceLuminance) / ((1 + subsurfaceLuminance) * (1 + subsurfaceLuminance))));
+    return lightColor * (lightAttenuation * lerp(NdotLWrap * subsurfaceColor, lerp(NdotLWrap * subsurfaceColor, NdotLWrap, 1 - subsurfaceLuminance), NdotL));
 #else
     return lightColor * (lightAttenuation * NdotL);
 #endif

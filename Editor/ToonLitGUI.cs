@@ -41,7 +41,8 @@ namespace kTools.Shading.Editor
 #region GUI
         public override void GetProperties(MaterialProperty[] properties)
         {
-            // Draw LitGUI
+            // Generate a LitGUI instance
+            // This is sealed but shares most properties
             m_LitGui = new LitGUI();
             m_LitGui.GetProperties(properties);
 
@@ -55,17 +56,18 @@ namespace kTools.Shading.Editor
 
         public override void DrawSurfaceInputs(MaterialEditor materialEditor)
         {
-            // Draw LitGUI
+            // Draw LitGUI SurfaceInputs
+            // These are the same
             m_LitGui.DrawSurfaceInputs(materialEditor);
         }
 
         public override void DrawCustom(MaterialEditor materialEditor)
         {
-            // Surface Inputs
+            // Stylization Options
             var stylizationOptions = EditorGUILayout.BeginFoldoutHeaderGroup(m_StylizationOptionsFoldout, Labels.StylizationOptions);
             if(stylizationOptions)
             {
-                // Toon Reflection
+                // Toon Reflections
                 materialEditor.ShaderProperty(m_EnableToonReflectionsProp, Labels.EnableToonReflections);
                 if (m_EnableToonReflectionsProp.floatValue == 1.0)
                 {
@@ -87,9 +89,11 @@ namespace kTools.Shading.Editor
 #region Keywords
         public override void SetMaterialKeywords(Material material)
         {
-            // Draw LitGUI
+            // Set LitGUI keywords
+            // These are mostly the same
             m_LitGui.SetMaterialKeywords(material);
 
+            // Toon Reflections
             material.SetKeyword("_TOON_REFLECTIONS", material.GetFloat(PropertyNames.EnableToonReflections) == 1.0f);
         }
 #endregion

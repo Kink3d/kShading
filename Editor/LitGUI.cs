@@ -198,6 +198,11 @@ namespace kTools.Shading.Editor
             materialEditor.TexturePropertyWithHDRColor(Labels.Emission, m_EmissionMapProp,
                 m_EmissionColorProp, false);
 
+            // If texture was assigned and color was black set color to white
+            var brightness = m_EmissionColorProp.colorValue.maxColorComponent;
+            if (m_EmissionMapProp.textureValue != null && !hadEmissionTexture && brightness <= 0f)
+                m_EmissionColorProp.colorValue = Color.white;
+
             // Anisotropy
             materialEditor.ShaderProperty(m_EnableAnisotropyProp, Labels.EnableAnisotropy);
             if (m_EnableAnisotropyProp.floatValue == 1.0)
@@ -205,11 +210,6 @@ namespace kTools.Shading.Editor
                 materialEditor.TexturePropertySingleLine(Labels.Anisotropy, m_AnisotropyMapProp, m_AnisotropyProp);
                 materialEditor.TexturePropertySingleLine(Labels.Direction, m_DirectionMapProp);
             }
-
-            // If texture was assigned and color was black set color to white
-            var brightness = m_EmissionColorProp.colorValue.maxColorComponent;
-            if (m_EmissionMapProp.textureValue != null && !hadEmissionTexture && brightness <= 0f)
-                m_EmissionColorProp.colorValue = Color.white;
 
             // Clear Coat
             materialEditor.ShaderProperty(m_EnableClearCoatProp, Labels.EnableClearCoat);

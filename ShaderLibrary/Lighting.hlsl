@@ -200,7 +200,12 @@ half DirectSpecularAnisotropic(float NoH, half LoH2, float3 halfDir,
 
     // Anisotropic GGX Distribution multiplied by combined approximation of Visibility and Fresnel
     // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
-    half d = D_GGXAniso(ToH, BoH, NoH, roughnessT, roughnessB);
+    // If roughness is 0, returns (NdotH == 1 ? 1 : 0).
+    // That is, it returns 1 for perfect mirror reflection, and 0 otherwise.
+    half a2 = roughnessT * roughnessB;
+    half3 v = half3(roughnessB * ToH, roughnessT * BoH, a2 * NoH);
+    half s = dot(v, v);
+    half d = SafeDiv(a2 * a2 * a2, s * s);
     return d * (LoH2 * (perceptualRoughness + 0.5) * 4.0);
 }
 
