@@ -234,6 +234,9 @@ namespace kTools.Shading.Editor
             {
                 materialEditor.TexturePropertySingleLine(Labels.Thickness, m_ThicknessMapProp, m_ThicknessProp);
             }
+
+            // TilingOffset
+            materialEditor.TextureScaleOffsetProperty(m_BaseMapProp);
         }
 #endregion
 

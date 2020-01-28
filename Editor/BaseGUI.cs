@@ -319,6 +319,8 @@ namespace kTools.Shading.Editor
             {
                 materialEditor.ShaderProperty(m_EnvironmentReflectionsProp, Styles.EnvironmentReflections);
             }
+
+            materialEditor.EnableInstancingField();
             
             // QueueOffset
             if(material.HasProperty(PropertyNames.QueueOffset))
