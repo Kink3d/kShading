@@ -1,28 +1,19 @@
-# Toon Shading
-![alt text][logo]
+# kShading
+### Shading models for Unity’s Universal Render Pipeline.
 
-[logo]: https://cdna.artstation.com/p/assets/images/images/007/124/644/large/matt-dean-screenshot01.jpg?1503872324 "Demo Scene"
+![alt text](https://github.com/Kink3d/kShading/wiki/Images/Home00.png?raw=true)
+*An example of a scene using Lit Toon shading.*
 
-A collection of "Toon" shaders based on a stepped PBR approximation.
+kShading is a package of shaders for Unity's Universal Render Pipeline. It includes:
+- **Lit:** A physically based shader that supports all default Universal surface properties as well as anisotropy, clear coat, sub-surface scattering and transmission.
+- **Toon Lit:** A cel style shader that supports all features of the **Lit** shader but uses a stepped physical approximation BSDF.
 
-Toon Standard Shader:
-- Custom "Toon" cel style BRDF
-- Specular / Smoothness 
-- Energy conservation approximation 
-- Wrap based transmission approximation 
-- Custom ShaderGUI
+Refer to the [Wiki](https://github.com/Kink3d/kShading/wiki/Home) for more information.
 
-Toon Water Shader: 
-- Uses same BRDF as above 
-- Voronoi based procedural waves 
-- Depth buffer to world position intersection for wave crests 
-- Approximated transmission and refraction 
-- Planar reflection 
-- Buoyancy calculation
+## Instructions
+- Open your project manifest file (`MyProject/Packages/manifest.json`).
+- Add `"com.kink3d.shading": "https://github.com/Kink3d/kShading.git"` to the `dependencies` list.
+- Open or focus on Unity Editor to resolve packages.
 
-Contains:
-- Toon Standard shader
-- Toon Water shader
-- Buoyancy controller
-- Demo scene
-- Source assets
+## Requirements
+- Unity 2019.3.0f3 or higher.
