@@ -2,10 +2,6 @@
 #define KSHADING_LIT_FORWARDPASS_INCLUDED
 
 // -------------------------------------
-// Includes
-#include "Packages/com.kink3d.shading/ShaderLibrary/Lighting.hlsl"
-
-// -------------------------------------
 // Structs
 struct Attributes
 {

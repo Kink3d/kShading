@@ -10,6 +10,24 @@
 #define _REFERENCE 0
 
 // -------------------------------------
+// Macros
+#ifndef DIRECTSPECULAR
+#define DIRECTSPECULAR(NoH, LoH2, perceptualRoughness, roughness2MinusOne, roughness2, normalizationTerm) DirectSpecular(NoH, LoH2, perceptualRoughness, roughness2MinusOne, roughness2, normalizationTerm)
+#endif
+#ifndef DIRECTSPECULARANISOTROPIC
+#define DIRECTSPECULARANISOTROPIC(NoH, LoH2, halfDir, perceptualRoughness, roughness, anisotropy, anisotropicTangent, anisotropicBitangent) DirectSpecularAnisotropic(NoH, LoH2, halfDir, perceptualRoughness, roughness, anisotropy, anisotropicTangent, anisotropicBitangent)
+#endif
+#ifndef DIRECTSPECULARCLEARCOAT
+#define DIRECTSPECULARCLEARCOAT(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) DirectSpecularClearCoat(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) 
+#endif
+#ifndef GLOSSYENVIRONMENT
+#define GLOSSYENVIRONMENT(reflectVector, perceptualClearCoatRoughness, occlusion) GlossyEnvironmentReflection(reflectVector, perceptualClearCoatRoughness, occlusion)
+#endif
+#ifndef RADIANCE
+#define RADIANCE(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor) Radiance(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor)
+#endif
+
+// -------------------------------------
 // Structs
 struct InputDataExtended
 {
@@ -151,12 +169,47 @@ inline void InitializeBRDFDataExtended(SurfaceDataExtended surfaceData, InputDat
 
 // -------------------------------------
 // BRDF
-#ifdef _CLEARCOAT
-half ClearCoat(BRDFDataExtended brdfData, half3 halfDir, half NoH, half LoH, half LoH2) 
+half DirectSpecular(float NoH, half LoH2, 
+    half perceptualRoughness, half roughness2MinusOne, half roughness2, half normalizationTerm)
 {
-    half D = NoH * NoH * brdfData.clearCoatRoughness2MinusOne + 1.00001h;
-    half specularTerm = brdfData.clearCoatRoughness2 / ((D * D) * max(0.1h, LoH2) * (brdfData.clearCoatRoughness * 4.0 + 2.0)) * brdfData.clearCoat;
-    half attenuation = 1 - LoH * brdfData.clearCoat;
+    // GGX Distribution multiplied by combined approximation of Visibility and Fresnel
+    // BRDFspec = (D * V * F) / 4.0
+    // D = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2
+    // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
+    // See "Optimizing PBR for Mobile" from Siggraph 2015 moving mobile graphics course
+    // https://community.arm.com/events/1155
+
+    // Final BRDFspec = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2 * (LoH^2 * (roughness + 0.5) * 4.0)
+    // We further optimize a few light invariant terms
+    // brdfData.normalizationTerm = (roughness + 0.5) * 4.0 rewritten as roughness * 4.0 + 2.0 to a fit a MAD.
+    float d = NoH * NoH * roughness2MinusOne + 1.00001f;
+    return roughness2 / ((d * d) * max(0.1h, LoH2) * normalizationTerm);
+}
+
+half DirectSpecularAnisotropic(float NoH, half LoH2, float3 halfDir, 
+    half perceptualRoughness, half roughness, half anisotropy, half3 anisotropicTangent, half3 anisotropicBitangent)
+{
+    half ToH = dot(anisotropicTangent, halfDir);
+    half BoH = dot(anisotropicBitangent, halfDir);
+
+    // Anisotropic parameters: at and ab are the roughness along the tangent and bitangent
+    // to simplify materials, we derive them from a single roughness parameter
+    // Kulla 2017, "Revisiting Physically Based Shading at Imageworks"
+    half roughnessT = max(roughness * (1.0 + anisotropy), HALF_MIN);
+    half roughnessB = max(roughness * (1.0 - anisotropy), HALF_MIN);
+
+    // Anisotropic GGX Distribution multiplied by combined approximation of Visibility and Fresnel
+    // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
+    half d = D_GGXAniso(ToH, BoH, NoH, roughnessT, roughnessB);
+    return d * (LoH2 * (perceptualRoughness + 0.5) * 4.0);
+}
+
+half DirectSpecularClearCoat(half NoH, half LoH, half LoH2, half3 halfDir, 
+    half clearCoat, half perceptualClearCoatRoughness, half clearCoatRoughness, half clearCoatRoughness2, half clearCoatRoughness2MinusOne) 
+{
+    half D = NoH * NoH * clearCoatRoughness2MinusOne + 1.00001h;
+    half specularTerm = clearCoatRoughness2 / ((D * D) * max(0.1h, LoH2) * (clearCoatRoughness * 4.0 + 2.0)) * clearCoat;
+    half attenuation = 1 - LoH * clearCoat;
 
 #if defined (SHADER_API_MOBILE)
 	specularTerm = specularTerm - HALF_MIN;
@@ -165,7 +218,6 @@ half ClearCoat(BRDFDataExtended brdfData, half3 halfDir, half NoH, half LoH, hal
 
 	return specularTerm * attenuation;
 }
-#endif
 
 // Based on Minimalist CookTorrance BRDF
 // Implementation is slightly different from original derivation: http://www.thetenthplanet.de/archives/255
@@ -182,32 +234,11 @@ half3 DirectBDRFExtended(BRDFDataExtended brdfData, half3 normalWS, half3 lightD
     half LoH2 = LoH * LoH;
 
     #ifdef _ANISOTROPY
-        half ToH = dot(brdfData.anisotropicTangent, halfDir);
-        half BoH = dot(brdfData.anisotropicBitangent, halfDir);
-
-        // Anisotropic parameters: at and ab are the roughness along the tangent and bitangent
-        // to simplify materials, we derive them from a single roughness parameter
-        // Kulla 2017, "Revisiting Physically Based Shading at Imageworks"
-        half roughnessT = max(brdfData.roughness * (1.0 + brdfData.anisotropy), HALF_MIN);
-        half roughnessB = max(brdfData.roughness * (1.0 - brdfData.anisotropy), HALF_MIN);
-
-        // Anisotropic GGX Distribution multiplied by combined approximation of Visibility and Fresnel
-        // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
-        half d = D_GGXAniso(ToH, BoH, NoH, roughnessT, roughnessB);
-        half specularTerm = d * (LoH2 * (brdfData.perceptualRoughness + 0.5) * 4.0);
+        half specularTerm = DIRECTSPECULARANISOTROPIC(NoH, LoH2, halfDir, 
+            brdfData.perceptualRoughness, brdfData.roughness, brdfData.anisotropy, brdfData.anisotropicTangent, brdfData.anisotropicBitangent);
     #else
-        // GGX Distribution multiplied by combined approximation of Visibility and Fresnel
-        // BRDFspec = (D * V * F) / 4.0
-        // D = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2
-        // V * F = 1.0 / ( LoH^2 * (roughness + 0.5) )
-        // See "Optimizing PBR for Mobile" from Siggraph 2015 moving mobile graphics course
-        // https://community.arm.com/events/1155
-
-        // Final BRDFspec = roughness^2 / ( NoH^2 * (roughness^2 - 1) + 1 )^2 * (LoH^2 * (roughness + 0.5) * 4.0)
-        // We further optimize a few light invariant terms
-        // brdfData.normalizationTerm = (roughness + 0.5) * 4.0 rewritten as roughness * 4.0 + 2.0 to a fit a MAD.
-        float d = NoH * NoH * brdfData.roughness2MinusOne + 1.00001f;
-        half specularTerm = brdfData.roughness2 / ((d * d) * max(0.1h, LoH2) * brdfData.normalizationTerm);
+        half specularTerm = DIRECTSPECULAR(NoH, LoH2, 
+            brdfData.perceptualRoughness, brdfData.roughness2MinusOne, brdfData.roughness2, brdfData.normalizationTerm);
     #endif
 
     // On platforms where half actually means something, the denominator has a risk of overflow
@@ -221,7 +252,8 @@ half3 DirectBDRFExtended(BRDFDataExtended brdfData, half3 normalWS, half3 lightD
     half3 color = specularTerm * brdfData.specular + brdfData.diffuse;
 
 #ifdef _CLEARCOAT
-    color += ClearCoat(brdfData, halfDir, NoH, LoH, LoH2);
+    color += DIRECTSPECULARCLEARCOAT(NoH, LoH, LoH2, halfDir, 
+        brdfData.clearCoat, brdfData.perceptualClearCoatRoughness, brdfData.clearCoatRoughness, brdfData.clearCoatRoughness2, brdfData.clearCoatRoughness2MinusOne); 
 #endif
 
     return color;
@@ -239,7 +271,7 @@ void GlobalIlluminationClearCoat(BRDFDataExtended brdfData, half3 reflectVector,
     float attenuation = 1 - fresnelTerm;
     indirectDiffuse *= attenuation;
     indirectSpecular *= attenuation * attenuation;
-    indirectSpecular += GlossyEnvironmentReflection(reflectVector, brdfData.perceptualClearCoatRoughness, occlusion) * fresnelTerm;
+    indirectSpecular += GLOSSYENVIRONMENT(reflectVector, brdfData.perceptualClearCoatRoughness, occlusion) * fresnelTerm;
 }
 #endif
 
@@ -260,7 +292,7 @@ half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half3 bakedGI, half 
     half fresnelTerm = Pow4(1.0 - saturate(dot(normalWS, viewDirectionWS)));
 
     half3 indirectDiffuse = bakedGI * occlusion * brdfData.diffuse;
-    half3 reflection = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, occlusion);
+    half3 reflection = GLOSSYENVIRONMENT(reflectVector, brdfData.perceptualRoughness, occlusion);
     float surfaceReduction = 1.0 / (brdfData.roughness2 + 1.0);
     half3 indirectSpecular = surfaceReduction * reflection * lerp(brdfData.specular, brdfData.grazingTerm, fresnelTerm);
 
@@ -273,20 +305,28 @@ half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half3 bakedGI, half 
 
 // -------------------------------------
 // Direct Lighting
+half3 Radiance(half3 normalWS, half3 lightDirectionWS, half3 lightColor, half lightAttenuation, half3 subsurfaceColor)
+{
+    half NdotL = saturate(dot(normalWS, lightDirectionWS));
+    
+#ifdef _SUBSURFACE
+    half NdotLWrap = saturate((dot(normalWS, lightDirectionWS) + subsurfaceColor) / ((1 + subsurfaceColor) * (1 + subsurfaceColor)));
+    return lightColor * (lightAttenuation * lerp(NdotLWrap * subsurfaceColor, NdotLWrap, NdotL));
+#else
+    return lightColor * (lightAttenuation * NdotL);
+#endif
+}
+
 half3 LightingExtended(BRDFDataExtended brdfData, Light light, half3 normalWS, half3 viewDirectionWS)
 {
-    half NdotL = saturate(dot(normalWS, light.direction));
-    half lightAttenuation = light.distanceAttenuation * light.shadowAttenuation;
-    
-    half3 internalColor = brdfData.diffuse;
 #ifdef _SUBSURFACE
-    half NdotLWrap = saturate((dot(normalWS, light.direction) + brdfData.subsurfaceColor) / ((1 + brdfData.subsurfaceColor) * (1 + brdfData.subsurfaceColor)));
-    half3 radiance = light.color * (lightAttenuation * lerp(NdotLWrap * brdfData.subsurfaceColor, NdotLWrap, NdotL));
-    internalColor = brdfData.subsurfaceColor;
+    half3 internalColor = brdfData.subsurfaceColor;
 #else
-    half3 radiance = light.color * (lightAttenuation * NdotL);
+    half3 internalColor = brdfData.diffuse;
 #endif
 
+    half lightAttenuation = light.distanceAttenuation * light.shadowAttenuation;
+    half3 radiance = RADIANCE(normalWS, light.direction, light.color, lightAttenuation, internalColor);
     half3 color = DirectBDRFExtended(brdfData, normalWS, light.direction, viewDirectionWS) * radiance;
 
 #ifdef _TRANSMISSION

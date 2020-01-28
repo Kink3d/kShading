@@ -1,4 +1,4 @@
-﻿Shader "kShading/Lit"
+﻿Shader "kShading/Toon Lit"
 {
     Properties
     {
@@ -50,6 +50,10 @@
         [ToggleOff] _EnableTransmission("Enable Transmission", Float) = 0.0
         _ThicknessMap("Thickness", 2D) = "black" {}
         _Thickness("Thickness", Range(0.0, 1.0)) = 0.5
+
+        // Stylization Options
+        [ToggleOff] _EnableToonReflections("Enable Toon Reflections", Float) = 0.0
+        _ReflectionSteps("Steps", Float) = 16.0
 
         // Advanced Options
         _ReceiveShadows("Receive Shadows", Float) = 1.0
@@ -109,6 +113,8 @@
             #pragma shader_feature _TRANSMISSION
             #pragma shader_feature _THICKNESSMAP
 
+            #pragma shader_feature _TOON_REFLECTIONS
+
             // -------------------------------------
             // Universal Pipeline keywords
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
@@ -131,7 +137,8 @@
             #pragma vertex LitPassVertex
             #pragma fragment LitPassFragment
 
-            #include "Packages/com.kink3d.shading/ShaderLibrary/LitInput.hlsl"
+            #include "Packages/com.kink3d.shading/ShaderLibrary/ToonLitInput.hlsl"
+            #include "Packages/com.kink3d.shading/ShaderLibrary/ToonLighting.hlsl"
             #include "Packages/com.kink3d.shading/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.kink3d.shading/ShaderLibrary/LitForwardPass.hlsl"
             ENDHLSL
@@ -149,6 +156,6 @@
         // Used for Baking GI. This pass is stripped from build.
         UsePass "Universal Render Pipeline/Lit/Meta"
     }
-    CustomEditor "kTools.Shading.Editor.LitGUI"
+    CustomEditor "kTools.Shading.Editor.ToonLitGUI"
 	FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }

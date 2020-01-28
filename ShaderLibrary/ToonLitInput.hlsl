@@ -1,5 +1,5 @@
-#ifndef KSHADING_LIT_INPUT_INCLUDED
-#define KSHADING_LIT_INPUT_INCLUDED
+#ifndef KSHADING_TOON_LIT_INPUT_INCLUDED
+#define KSHADING_TOON_LIT_INPUT_INCLUDED
 
 // -------------------------------------
 // Includes
@@ -22,6 +22,7 @@ half _ClearCoat;
 half _ClearCoatSmoothness;
 half3 _SubsurfaceColor;
 half _Thickness;
+half _ReflectionSteps;
 CBUFFER_END
 
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);

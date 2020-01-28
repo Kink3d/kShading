@@ -174,6 +174,12 @@ namespace kTools.Shading.Editor
         /// <param name="materialEditor">MaterialEditor currently drawing.</param>  
         public abstract void DrawSurfaceInputs(MaterialEditor materialEditor);
 
+        /// <summary>
+        /// Draw custom GUI after all foldouts.
+        /// </summary>
+        /// <param name="materialEditor">MaterialEditor currently drawing.</param>  
+        public virtual void DrawCustom(MaterialEditor materialEditor) {}
+
         void DrawProperties(MaterialEditor materialEditor)
         {
             // Surface Options
@@ -205,6 +211,9 @@ namespace kTools.Shading.Editor
             }
             SetFoldoutState("AdvancedOptions", m_AdvancedOptionsFoldout, advancedOptions);
             EditorGUILayout.EndFoldoutHeaderGroup();
+
+            // Custom
+            DrawCustom(materialEditor);
         }
 
         void DrawSurfaceProperies(MaterialEditor materialEditor)
