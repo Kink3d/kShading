@@ -23,6 +23,7 @@ half _ClearCoatSmoothness;
 half3 _SubsurfaceColor;
 half _Thickness;
 half _ReflectionSteps;
+half _LocalMirror;
 CBUFFER_END
 
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
@@ -33,6 +34,9 @@ TEXTURE2D(_DirectionMap);       SAMPLER(sampler_DirectionMap);
 TEXTURE2D(_ClearCoatMap);       SAMPLER(sampler_ClearCoatMap);
 TEXTURE2D(_SubsurfaceMap);      SAMPLER(sampler_SubsurfaceMap);
 TEXTURE2D(_ThicknessMap);       SAMPLER(sampler_ThicknessMap);
+
+TEXTURE2D(_ReflectionMap);      SAMPLER(sampler_ReflectionMap);
+TEXTURE2D(_LocalReflectionMap); SAMPLER(sampler_LocalReflectionMap);
 
 // -------------------------------------
 // Includes

@@ -11,7 +11,7 @@
 #define DIRECTSPECULAR(NoH, LoH2, perceptualRoughness, roughness2MinusOne, roughness2, normalizationTerm) DirectSpecularToon(NoH, LoH2, perceptualRoughness, roughness2MinusOne, roughness2, normalizationTerm)
 #define DIRECTSPECULARANISOTROPIC(NoH, LoH2, halfDir, perceptualRoughness, roughness, anisotropy, anisotropicTangent, anisotropicBitangent) DirectSpecularAnisotropicToon(NoH, LoH2, halfDir, perceptualRoughness, roughness, anisotropy, anisotropicTangent, anisotropicBitangent)
 #define DIRECTSPECULARCLEARCOAT(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) DirectSpecularClearCoatToon(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) 
-#define GLOSSYENVIRONMENT(reflectVector, perceptualClearCoatRoughness, occlusion) GlossyEnvironmentToon(reflectVector, perceptualClearCoatRoughness, occlusion)
+#define GLOSSYENVIRONMENT(reflectVector, positionSS, perceptualClearCoatRoughness, occlusion) GlossyEnvironmentToon(reflectVector, positionSS, perceptualClearCoatRoughness, occlusion)
 #define RADIANCE(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor) RadianceToon(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor)
 
 // -------------------------------------
@@ -92,11 +92,20 @@ half DirectSpecularClearCoatToon(half NoH, half LoH, half LoH2, half3 halfDir,
 
 // -------------------------------------
 // Global Illumination
-half3 GlossyEnvironmentToon(half3 reflectVector, half perceptualRoughness, half occlusion)
+half3 GlossyEnvironmentToon(half3 reflectVector, half2 positionSS,  half perceptualRoughness, half occlusion)
 {
 #if !defined(_ENVIRONMENTREFLECTIONS_OFF)
     half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
+
+#ifdef _ENVIRONMENTREFLECTIONS_MIRROR
+    half4 encodedIrradiance = SAMPLE_TEXTURE2D_LOD(_ReflectionMap, sampler_ReflectionMap, positionSS, mip);
+#ifdef _BLEND_MIRRORS
+    half4 encodedIrradienceLocal = SAMPLE_TEXTURE2D_LOD(_LocalReflectionMap, sampler_LocalReflectionMap, positionSS, mip);
+    encodedIrradience = lerp(encodedIrradiance, encodedIrradienceLocal, _LocalMirror);
+#endif
+#else
     half4 encodedIrradiance = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip);
+#endif
 
 #if !defined(UNITY_USE_NATIVE_HDR)
     half3 irradiance = DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);

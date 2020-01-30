@@ -21,7 +21,7 @@
 #define DIRECTSPECULARCLEARCOAT(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) DirectSpecularClearCoat(NoH, LoH, LoH2, halfDir, clearCoat, perceptualClearCoatRoughness, clearCoatRoughness, clearCoatRoughness2, clearCoatRoughness2MinusOne) 
 #endif
 #ifndef GLOSSYENVIRONMENT
-#define GLOSSYENVIRONMENT(reflectVector, perceptualClearCoatRoughness, occlusion) GlossyEnvironmentReflection(reflectVector, perceptualClearCoatRoughness, occlusion)
+#define GLOSSYENVIRONMENT(reflectVector, positionSS, perceptualClearCoatRoughness, occlusion) GlossyEnvironmentExtended(reflectVector, positionSS, perceptualClearCoatRoughness, occlusion)
 #endif
 #ifndef RADIANCE
 #define RADIANCE(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor) Radiance(normalWS, lightDirectionWS, lightColor, lightAttenuation, subsurfaceColor)
@@ -41,6 +41,9 @@ struct InputDataExtended
 #ifdef _ANISOTROPY
     half3   tangentWS;
     half3   bitangentWS;
+#endif
+#ifdef _ENVIRONMENTREFLECTIONS_MIRROR
+    float2   positionSS;
 #endif
 };
 
@@ -269,18 +272,46 @@ half3 DirectBDRFExtended(BRDFDataExtended brdfData, half3 normalWS, half3 lightD
 
 // -------------------------------------
 // Global Illumination
+half3 GlossyEnvironmentExtended(half3 reflectVector, half2 positionSS, half perceptualRoughness, half occlusion)
+{
+#if !defined(_ENVIRONMENTREFLECTIONS_OFF)
+    half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
+
+#ifdef _ENVIRONMENTREFLECTIONS_MIRROR
+    half4 encodedIrradiance = SAMPLE_TEXTURE2D_LOD(_ReflectionMap, sampler_ReflectionMap, positionSS, mip);
+#ifdef _BLEND_MIRRORS
+    half4 encodedIrradienceLocal = SAMPLE_TEXTURE2D_LOD(_LocalReflectionMap, sampler_LocalReflectionMap, positionSS, mip);
+    encodedIrradiance = lerp(encodedIrradiance, encodedIrradienceLocal, _LocalMirror);
+#endif
+#else
+    half4 encodedIrradiance = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip);
+#endif
+
+#if !defined(UNITY_USE_NATIVE_HDR)
+    half3 irradiance = DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+#else
+    half3 irradiance = encodedIrradiance.rbg;
+#endif
+
+    half3 reflection = irradiance * occlusion;
+    return reflection;
+#else
+    return _GlossyEnvironmentColor.rgb * occlusion;
+#endif
+}
+
 #ifdef _CLEARCOAT
-void GlobalIlluminationClearCoat(BRDFDataExtended brdfData, half3 reflectVector, half fresnelTerm, half occlusion, inout half3 indirectDiffuse, inout half3 indirectSpecular)
+void GlobalIlluminationClearCoat(BRDFDataExtended brdfData, half2 positionSS, half3 reflectVector, half fresnelTerm, half occlusion, inout half3 indirectDiffuse, inout half3 indirectSpecular)
 {
     fresnelTerm *= brdfData.clearCoat;
     float attenuation = 1 - fresnelTerm;
     indirectDiffuse *= attenuation;
     indirectSpecular *= attenuation * attenuation;
-    indirectSpecular += GLOSSYENVIRONMENT(reflectVector, brdfData.perceptualClearCoatRoughness, occlusion) * fresnelTerm;
+    indirectSpecular += GLOSSYENVIRONMENT(reflectVector, positionSS, brdfData.perceptualClearCoatRoughness, occlusion) * fresnelTerm;
 }
 #endif
 
-half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half3 bakedGI, half occlusion, half3 normalWS, half3 viewDirectionWS)
+half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half2 positionSS, half3 bakedGI, half occlusion, half3 normalWS, half3 viewDirectionWS)
 {
 #ifdef _ANISOTROPY
     half3 anisotropyDirection = lerp(brdfData.anisotropicBitangent, brdfData.anisotropicTangent, step(brdfData.anisotropy, 0));
@@ -297,12 +328,12 @@ half3 GlobalIlluminationExtended(BRDFDataExtended brdfData, half3 bakedGI, half 
     half fresnelTerm = Pow4(1.0 - saturate(dot(normalWS, viewDirectionWS)));
 
     half3 indirectDiffuse = bakedGI * occlusion * brdfData.diffuse;
-    half3 reflection = GLOSSYENVIRONMENT(reflectVector, brdfData.perceptualRoughness, occlusion);
+    half3 reflection = GLOSSYENVIRONMENT(reflectVector, positionSS, brdfData.perceptualRoughness, occlusion);
     float surfaceReduction = 1.0 / (brdfData.roughness2 + 1.0);
     half3 indirectSpecular = surfaceReduction * reflection * lerp(brdfData.specular, brdfData.grazingTerm, fresnelTerm);
 
 #ifdef _CLEARCOAT
-    GlobalIlluminationClearCoat(brdfData, reflectVector, fresnelTerm, occlusion, indirectDiffuse, indirectSpecular);
+    GlobalIlluminationClearCoat(brdfData, positionSS, reflectVector, fresnelTerm, occlusion, indirectDiffuse, indirectSpecular);
 #endif
 
     return indirectDiffuse + indirectSpecular;
@@ -353,7 +384,13 @@ half4 FragmentLitExtended(InputDataExtended inputData, SurfaceDataExtended surfa
     Light mainLight = GetMainLight(inputData.shadowCoord);
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
 
-    half3 color = GlobalIlluminationExtended(brdfData, inputData.bakedGI, surfaceData.occlusion, inputData.normalWS, inputData.viewDirectionWS);
+#ifdef _ENVIRONMENTREFLECTIONS_MIRROR
+    float2 positionSS = inputData.positionSS;
+#else
+    half2 positionSS = half2(0, 0);
+#endif
+
+    half3 color = GlobalIlluminationExtended(brdfData, positionSS, inputData.bakedGI, surfaceData.occlusion, inputData.normalWS, inputData.viewDirectionWS);
     color += LightingExtended(brdfData, mainLight, inputData.normalWS, inputData.viewDirectionWS);
 
 #ifdef _ADDITIONAL_LIGHTS
