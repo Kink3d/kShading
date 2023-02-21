@@ -137,6 +137,39 @@
             ENDHLSL
         }
 
+        Pass
+        {
+            // "Faux" GBuffer pass just to write normals for SSAO and other full screen passes
+            Name "GBuffer"
+            Tags{"LightMode" = "UniversalGBuffer"}
+
+            ZWrite[_ZWrite]
+            ZTest LEqual
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma exclude_renderers gles gles3 glcore
+            #pragma target 4.5
+
+            // -------------------------------------
+            // Normals Keywords
+            #pragma shader_feature_local _NORMALMAP
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #pragma instancing_options renderinglayer
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+
+            #pragma vertex LitGBufferPassVertex
+            #pragma fragment LitGBufferPassFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.kink3d.shading/ShaderLibrary/LitGBufferPass.hlsl"
+            ENDHLSL
+        }
+
         // Used for rendering shadowmaps
         UsePass "Universal Render Pipeline/Lit/ShadowCaster"
 
@@ -145,6 +178,7 @@
         // We also need to use a depth prepass in some cases camera require depth texture
         // (e.g, MSAA is enabled and we can't resolve with Texture2DMS
         UsePass "Universal Render Pipeline/Lit/DepthOnly"
+        UsePass "Universal Render Pipeline/Lit/DepthNormals"
 
         // Used for Baking GI. This pass is stripped from build.
         UsePass "Universal Render Pipeline/Lit/Meta"
