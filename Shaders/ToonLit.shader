@@ -59,6 +59,7 @@
         _ReceiveShadows("Receive Shadows", Float) = 1.0
 		[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
         [ToggleOff] _EnvironmentReflections("Environment Reflections", Float) = 1.0
+        _ReflectionsSource("Reflections Source", Float) = 0.0
         [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
     }
 
@@ -114,6 +115,9 @@
             #pragma shader_feature _THICKNESSMAP
 
             #pragma shader_feature _TOON_REFLECTIONS
+
+            #pragma shader_feature _ENVIRONMENTREFLECTIONS_MIRROR
+            #pragma shader_feature _BLEND_MIRRORS
 
             // -------------------------------------
             // Universal Pipeline keywords

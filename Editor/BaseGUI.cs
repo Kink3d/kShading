@@ -43,7 +43,10 @@ namespace kTools.Shading.Editor
                 "When enabled, the Material reflects the shine from direct lighting.");
 
             public static readonly GUIContent EnvironmentReflections = new GUIContent("Environment Reflections",
-                "When enabled, the Material samples reflections from the nearest Reflection Probes or Lighting Probe.");
+                "When enabled, the Material samples reflections based on the Source property.");
+            
+            public static readonly GUIContent ReflectionsSource = new GUIContent("Source",
+                "Specifies the source for environment reflections. Probes samples reflections from the nearest Reflection Probes or Lighting Probe. Mirrors samples reflections from the available Mirror texture in screen space.");
 
             public static readonly GUIContent Priority = new GUIContent("Priority",
                 "Determines the chronological rendering order for a Material. High values are rendered first.");
@@ -61,6 +64,7 @@ namespace kTools.Shading.Editor
             public static readonly string ReceiveShadows = "_ReceiveShadows";
             public static readonly string SpecularHighlights = "_SpecularHighlights";
             public static readonly string EnvironmentReflections = "_EnvironmentReflections";
+            public static readonly string ReflectionsSource = "_ReflectionsSource";
             public static readonly string QueueOffset = "_QueueOffset";
         }
 #endregion
@@ -104,6 +108,15 @@ namespace kTools.Shading.Editor
             Back = 1,
             Both = 0
         }
+
+        /// <summary>
+        /// Reflections source enumeration for shaders.
+        /// </summary>
+        public enum ReflectionsSource
+        {
+            Probes,
+            Mirrors,
+        }
 #endregion
 
 #region Fields
@@ -125,6 +138,7 @@ namespace kTools.Shading.Editor
         MaterialProperty m_ReceiveShadowsProp;
         MaterialProperty m_SpecularHighlightsProp;
         MaterialProperty m_EnvironmentReflectionsProp;
+        MaterialProperty m_ReflectionsSourceProp;
         MaterialProperty m_QueueOffsetProp;
 #endregion
 
@@ -146,6 +160,7 @@ namespace kTools.Shading.Editor
             m_ReceiveShadowsProp = FindProperty(PropertyNames.ReceiveShadows, properties, false);
             m_SpecularHighlightsProp = FindProperty(PropertyNames.SpecularHighlights, properties, false);
             m_EnvironmentReflectionsProp = FindProperty(PropertyNames.EnvironmentReflections, properties, false);
+            m_ReflectionsSourceProp = FindProperty(PropertyNames.ReflectionsSource, properties, false);
             m_QueueOffsetProp = FindProperty(PropertyNames.QueueOffset, properties, false);
 
             // Leaf properties
@@ -318,6 +333,21 @@ namespace kTools.Shading.Editor
             if(material.HasProperty(PropertyNames.EnvironmentReflections))
             {
                 materialEditor.ShaderProperty(m_EnvironmentReflectionsProp, Styles.EnvironmentReflections);
+
+                // Reflection Source
+                bool environmentReflections = m_EnvironmentReflectionsProp.floatValue == 1.0f;
+                if(environmentReflections && material.HasProperty(PropertyNames.ReflectionsSource))
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUI.BeginChangeCheck();
+                    var reflectionsSource = EditorGUILayout.Popup(Styles.ReflectionsSource, (int)m_ReflectionsSourceProp.floatValue, Enum.GetNames(typeof(ReflectionsSource)));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        materialEditor.RegisterPropertyChangeUndo(Styles.ReflectionsSource.text);
+                        m_ReflectionsSourceProp.floatValue = reflectionsSource;
+                    }
+                    EditorGUI.indentLevel--;
+                }
             }
 
             materialEditor.EnableInstancingField();
@@ -456,6 +486,12 @@ namespace kTools.Shading.Editor
             if(material.HasProperty(PropertyNames.EnvironmentReflections))
             {
                 material.SetKeyword("_ENVIRONMENTREFLECTIONS_OFF", material.GetFloat(m_EnvironmentReflectionsProp.name) == 0.0f);
+            }
+
+            // Reflections Source
+            if(material.HasProperty(PropertyNames.ReflectionsSource))
+            {
+                material.SetKeyword("_ENVIRONMENTREFLECTIONS_MIRROR", (ReflectionsSource)material.GetFloat(m_ReflectionsSourceProp.name) == ReflectionsSource.Mirrors);
             }
         }        
 #endregion
