@@ -1,6 +1,8 @@
 #ifndef KSHADING_LIGHTING_INCLUDED
 #define KSHADING_LIGHTING_INCLUDED
 
+float4 _OverrideReflectionProbeColor;
+
 // -------------------------------------
 // Includes
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -288,7 +290,12 @@ half3 GlossyEnvironmentExtended(half3 reflectVector, half2 positionSS, half perc
 #endif
 
 #if !defined(UNITY_USE_NATIVE_HDR)
-    half3 irradiance = DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+    float4 specCubeHDR = unity_SpecCube0_HDR;
+#ifdef _OVERRIDE_REFLECTION_PROBE
+    specCubeHDR = _OverrideReflectionProbeColor;
+#endif
+
+    half3 irradiance = DecodeHDREnvironment(encodedIrradiance, specCubeHDR);
 #else
     half3 irradiance = encodedIrradiance.rbg;
 #endif
@@ -382,6 +389,7 @@ half4 FragmentLitExtended(InputDataExtended inputData, SurfaceDataExtended surfa
     InitializeBRDFDataExtended(surfaceData, inputData, brdfData);
 
     Light mainLight = GetMainLight(inputData.shadowCoord);
+
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
 
 #ifdef _ENVIRONMENTREFLECTIONS_MIRROR

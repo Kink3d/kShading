@@ -47,6 +47,12 @@ namespace kTools.Shading.Editor
             
             public static readonly GUIContent ReflectionsSource = new GUIContent("Source",
                 "Specifies the source for environment reflections. Probes samples reflections from the nearest Reflection Probes or Lighting Probe. Mirrors samples reflections from the available Mirror texture in screen space.");
+            
+            public static readonly GUIContent OverrideReflectionProbe = new GUIContent("Override Probes",
+                "When enabled, reflection probe HDR values are replaced");
+
+            public static readonly GUIContent OverrideReflectionProbeColor = new GUIContent("Override Probe Color",
+                "Specifies the HDR color to override the reflection probe with.");
 
             public static readonly GUIContent Priority = new GUIContent("Priority",
                 "Determines the chronological rendering order for a Material. High values are rendered first.");
@@ -66,6 +72,8 @@ namespace kTools.Shading.Editor
             public static readonly string EnvironmentReflections = "_EnvironmentReflections";
             public static readonly string ReflectionsSource = "_ReflectionsSource";
             public static readonly string QueueOffset = "_QueueOffset";
+            public static readonly string OverrideReflectionProbe = "_OverrideReflectionProbe";
+            public static readonly string OverrideReflectionProbeColor = "_OverrideReflectionProbeColor";
         }
 #endregion
 
@@ -140,6 +148,8 @@ namespace kTools.Shading.Editor
         MaterialProperty m_EnvironmentReflectionsProp;
         MaterialProperty m_ReflectionsSourceProp;
         MaterialProperty m_QueueOffsetProp;
+        MaterialProperty m_OverrideReflectionProbe;
+        MaterialProperty m_OverrideReflectionProbeColor;
 #endregion
 
 #region GUI
@@ -162,6 +172,8 @@ namespace kTools.Shading.Editor
             m_EnvironmentReflectionsProp = FindProperty(PropertyNames.EnvironmentReflections, properties, false);
             m_ReflectionsSourceProp = FindProperty(PropertyNames.ReflectionsSource, properties, false);
             m_QueueOffsetProp = FindProperty(PropertyNames.QueueOffset, properties, false);
+            m_OverrideReflectionProbe = FindProperty(PropertyNames.OverrideReflectionProbe, properties, false);
+            m_OverrideReflectionProbeColor = FindProperty(PropertyNames.OverrideReflectionProbeColor, properties, false);
 
             // Leaf properties
             GetProperties(properties);
@@ -346,6 +358,29 @@ namespace kTools.Shading.Editor
                         materialEditor.RegisterPropertyChangeUndo(Styles.ReflectionsSource.text);
                         m_ReflectionsSourceProp.floatValue = reflectionsSource;
                     }
+
+                    if ((ReflectionsSource)reflectionsSource == ReflectionsSource.Mirrors)
+                    {
+                        EditorGUI.BeginChangeCheck();
+                        var overrideReflectionProbe = EditorGUILayout.Toggle(Styles.OverrideReflectionProbe, m_OverrideReflectionProbe.floatValue == 1.0);
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            materialEditor.RegisterPropertyChangeUndo(Styles.OverrideReflectionProbe.text);
+                            m_OverrideReflectionProbe.floatValue = overrideReflectionProbe ? 1 : 0;
+                        }
+
+                        using(var disabledScope = new EditorGUI.DisabledGroupScope(!overrideReflectionProbe))
+                        {
+                            materialEditor.ShaderProperty(m_OverrideReflectionProbeColor, Styles.OverrideReflectionProbeColor);
+                            // EditorGUI.BeginChangeCheck();
+                            // var overrideReflectionProbeColor = EditorGUILayout.ColorField(Styles.OverrideReflectionProbeColor, m_OverrideReflectionProbeColor.colorValue);
+                            // if (EditorGUI.EndChangeCheck())
+                            // {
+                            //     materialEditor.RegisterPropertyChangeUndo(Styles.OverrideReflectionProbeColor.text);
+                            //     m_OverrideReflectionProbeColor.colorValue = overrideReflectionProbeColor;
+                            // }
+                        }
+                    }
                     EditorGUI.indentLevel--;
                 }
             }
@@ -492,6 +527,14 @@ namespace kTools.Shading.Editor
             if(material.HasProperty(PropertyNames.ReflectionsSource))
             {
                 material.SetKeyword("_ENVIRONMENTREFLECTIONS_MIRROR", (ReflectionsSource)material.GetFloat(m_ReflectionsSourceProp.name) == ReflectionsSource.Mirrors);
+            }
+
+            // Override Reflection Probes
+            if(material.HasProperty(PropertyNames.OverrideReflectionProbe))
+            {
+                var mirrorsEnabled = (ReflectionsSource)material.GetFloat(m_ReflectionsSourceProp.name) == ReflectionsSource.Mirrors;
+                var overrideReflectionProbeEnabled = material.GetFloat(m_OverrideReflectionProbe.name) == 1.0;
+                material.SetKeyword("_OVERRIDE_REFLECTION_PROBE", mirrorsEnabled && overrideReflectionProbeEnabled);
             }
         }        
 #endregion

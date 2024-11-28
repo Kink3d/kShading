@@ -56,6 +56,8 @@
 		[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
         [ToggleOff] _EnvironmentReflections("Environment Reflections", Float) = 1.0
         _ReflectionsSource("Reflections Source", Float) = 0.0
+        _OverrideReflectionProbe("Override Reflection Probe", Float) = 0.0
+        _OverrideReflectionProbeColor("Override Reflection Probe Color", Vector) = (1, 1, 1, 1)
         [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
     }
 
@@ -112,11 +114,11 @@
 
             #pragma shader_feature _ENVIRONMENTREFLECTIONS_MIRROR
             #pragma shader_feature _BLEND_MIRRORS
+            #pragma shader_feature _OVERRIDE_REFLECTION_PROBE
 
             // -------------------------------------
             // Universal Pipeline keywords
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _SHADOWS_SOFT
